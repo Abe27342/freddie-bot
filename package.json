@@ -1,0 +1,29 @@
+{
+	"name": "root",
+	"version": "0.0.1",
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"packageManager": "pnpm@8.7.4",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/abe27342/freddie-bot.git"
+	},
+	"author": "Abram Sanderson",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/abe27342/freddie-bot/issues"
+	},
+	"homepage": "https://github.com/abe27342/freddie-bot#readme",
+	"scripts": {
+		"build": "pnpm --stream --filter @freddie-bot/* run build",
+		"start:bot": "pnpm --filter @freddie-bot/bot run start",
+		"test": "pnpm --stream --filter @freddie-bot/* run test"
+	},
+	"devDependencies": {
+		"@fluidframework/azure-local-service": "^1.1.1",
+		"pnpm": ">=8.7.4",
+		"vite": "^4.1.1",
+		"vitest": "^0.28.5"
+	}
+}

@@ -1,0 +1,41 @@
+{
+	"name": "@freddie-bot/bot",
+	"version": "0.0.1",
+	"description": "Bot-side code for FreddieBot (a MapleLegends discord bot)",
+	"main": "dist/index.js",
+	"type": "module",
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"scripts": {
+		"build": "tsc --build",
+		"clean": "rimraf dist & rimraf **/*.tsbuildinfo",
+		"format": "prettier --write src",
+		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
+		"start": "node ./dist/index.js",
+		"generate-share-url": "node ./scripts/print-authorize-link.js",
+		"update-commands": "node ./scripts/deploy-commands",
+		"update-commands:prod": "cross-env DEPLOY_EVERYWHERE=true node ./scripts/deploy-commands"
+	},
+	"dependencies": {
+		"random-js": "^2.1.0",
+		"@discordjs/rest": "^1.1.0",
+		"debug": "^4.3.4",
+		"discord.js": "^14.8.0",
+		"dotenv": "^16.0.2",
+		"uuid": "^9.0.0"
+	},
+	"devDependencies": {
+		"@types/debug": "^4.1.5",
+		"@types/node": "^16.9.0",
+		"@types/uuid": "^8.3.4",
+		"cross-env": "^7.0.3",
+		"prettier": "^2.7.1",
+		"typescript": "^5.2.2",
+		"vite": "^4.1.1",
+		"vitest": "^0.28.5"
+	},
+	"author": "Abram Sanderson",
+	"license": "MIT"
+}

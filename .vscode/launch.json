@@ -1,0 +1,51 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Launch Discord Bot",
+			"skipFiles": ["<node_internals>/**"],
+			"program": "${workspaceFolder}\\packages\\bot\\dist\\index.js",
+			"preLaunchTask": "npm: build - packages/bot",
+			"outFiles": ["${workspaceFolder}/packages/bot/dist/**/*.js"]
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Deploy Commands",
+			"skipFiles": ["<node_internals>/**"],
+			"program": "${workspaceFolder}\\packages\\bot\\scripts\\deploy-commands.js",
+			"preLaunchTask": "npm: build - packages/bot",
+			"outFiles": ["${workspaceFolder}/packages/bot/dist/**/*.js"]
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Serverless: Debug Current Test File (bot)",
+			"autoAttachChildProcesses": true,
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+			"program": "${workspaceRoot}/packages/bot/node_modules/vitest/vitest.mjs",
+			"cwd": "${workspaceRoot}/packages/bot",
+			"args": ["run", "${relativeFile}"],
+			"smartStep": true,
+			"console": "integratedTerminal",
+			"env": {
+				"DEBUGGING": "true"
+			},
+			"presentation": {
+				// "hidden": true,
+				"group": "no-server-tests"
+			}
+		}
+	],
+	"compounds": [
+		{
+			"name": "Debug Current Test File (bot)",
+			"configurations": ["Serverless: Debug Current Test File (bot)"],
+			"presentation": {
+				"group": "tests"
+			}
+		}
+	]
+}
