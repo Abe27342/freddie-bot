@@ -65,7 +65,7 @@ export const bloodwash: Command = {
 		const allocatedAp = str + dex + int + luk;
 
 		await interaction.reply(
-			`You have ${availableAp - allocatedAp} assigned on HP/MP.`
+			`You have ${availableAp - allocatedAp} AP assigned on HP/MP.`
 		);
 	},
 };
