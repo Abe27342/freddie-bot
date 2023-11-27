@@ -15,7 +15,6 @@ It uses [pnpm](https://pnpm.io/).
 
 TODO:
 
--   exp
 -   washes
 -   levels
 -   avatar

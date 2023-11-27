@@ -4,28 +4,7 @@ import {
 	SlashCommandBuilder,
 } from 'discord.js';
 import { Command } from './types';
-
-const MAPLELEGENDS_BASE_API = 'https://maplelegends.com';
-
-async function getOnline(): Promise<number | undefined> {
-	const url = new URL(`/api/get_online_users`, MAPLELEGENDS_BASE_API);
-	const response = await fetch(url.href);
-	if (!response.ok) {
-		return undefined;
-	}
-	return (await response.json()).usercount;
-}
-
-async function getUniqueUsers(): Promise<
-	{ daily: number; weekly: number; monthly: number } | undefined
-> {
-	const url = new URL(`/api/get_unique_users`, MAPLELEGENDS_BASE_API);
-	const response = await fetch(url.href);
-	if (!response.ok) {
-		return undefined;
-	}
-	return await response.json();
-}
+import { getOnline, getUniqueUsers } from './apis/index.js';
 
 export const serverinfo: Command = {
 	data: new SlashCommandBuilder()
