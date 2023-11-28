@@ -19,11 +19,12 @@
 		"update-commands:prod": "cross-env DEPLOY_EVERYWHERE=true node ./scripts/deploy-commands"
 	},
 	"dependencies": {
-		"random-js": "^2.1.0",
 		"@discordjs/rest": "^1.1.0",
 		"debug": "^4.3.4",
 		"discord.js": "^14.8.0",
 		"dotenv": "^16.0.2",
+		"mongodb": "^6.3.0",
+		"random-js": "^2.1.0",
 		"uuid": "^9.0.0"
 	},
 	"devDependencies": {

@@ -42,7 +42,6 @@ for (const command of commands) {
 }
 
 if (isProdDeploy) {
-	await new Promise((resolve) => setTimeout(resolve, 10000));
 	rest.put(Routes.applicationCommands(clientId), { body: commands });
 } else {
 	rest.put(Routes.applicationGuildCommands(clientId, guildId), {

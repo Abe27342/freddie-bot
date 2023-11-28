@@ -1,7 +1,9 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest';
-import { FreddieBotClient, createClient } from '../../client';
-import { HasName, IServerState, MockDiscord } from '../mockDiscord';
+import { createClient } from '../../client';
+import { FreddieBotClient } from '../../types';
+import { IServerState, MockDiscord } from '../mockDiscord';
 import { runCommand } from '../testUtils';
+import { makeMockDb } from '../mockDb';
 
 describe('bloodwash', () => {
 	const asyncErrors: any[] = [];
@@ -15,6 +17,7 @@ describe('bloodwash', () => {
 		client = createClient({
 			token: 'mock-token',
 			baseClient: mockDiscord.getClient(),
+			db: makeMockDb(),
 			onError: async (error) => {
 				asyncErrors.push({ error, stack: error.stack });
 			},

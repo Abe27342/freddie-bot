@@ -1,12 +1,8 @@
 import {
-	AttachmentBuilder,
 	CacheType,
 	ChatInputCommandInteraction,
-	EmbedBuilder,
 	SlashCommandBuilder,
 } from 'discord.js';
-import * as path from 'path';
-import { promises as fs } from 'fs';
 import { Command } from './types';
 import { Random, MersenneTwister19937 } from 'random-js';
 

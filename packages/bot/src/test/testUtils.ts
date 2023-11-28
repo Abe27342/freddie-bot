@@ -4,8 +4,8 @@ import {
 	SlashCommandBuilder,
 	SlashCommandSubcommandsOnlyBuilder,
 } from 'discord.js';
+import { FreddieBotClient } from '../types';
 import { ChannelData, MockDiscord } from './mockDiscord.js';
-import { FreddieBotClient } from '../client';
 import * as commandsModule from '../commands/index.js';
 
 // TODO: There's a lot of `any` in this file.

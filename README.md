@@ -19,9 +19,8 @@ TODO:
 -   levels
 -   avatar
 -   boss timers
--   reminders
--   deployment/infra setup
 -   random extra pqs (lmpq?)
 -   fix $maple to be aesthetic
 -   make partyroll have short string format
 -   testing
+-   Avoid using env for secrets with docker setup, mount secret volumes instead
