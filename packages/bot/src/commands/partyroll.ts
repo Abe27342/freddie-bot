@@ -104,8 +104,19 @@ export const partyroll: Command = {
 		let results: string[];
 		switch (interaction.options.getSubcommand()) {
 			case 'redo': {
+				const previousRollWithPotentialShortString =
+					interaction.options.getString(PREVIOUS_ROLL_ARG) ?? '';
+				const shortStringIndex =
+					previousRollWithPotentialShortString.indexOf(
+						'Short string format:'
+					);
 				const previousRoll = parseCharacters(
-					interaction.options.getString(PREVIOUS_ROLL_ARG) ?? ''
+					shortStringIndex !== -1
+						? previousRollWithPotentialShortString.slice(
+								0,
+								shortStringIndex
+						  )
+						: previousRollWithPotentialShortString
 				);
 				const addedCharacters = parseCharacters(
 					interaction.options.getString(ADDED_CHARACTERS_ARG) ?? ''
@@ -140,8 +151,14 @@ export const partyroll: Command = {
 				);
 		}
 
+		const longResults = results
+			.map((name, index) => `${index + 1}. ${name}`)
+			.join('\n');
+		const shortResults = results
+			.map((name, index) => `${index + 1} - ${name}`)
+			.join(', ');
 		await interaction.reply(
-			results.map((name, index) => `${index + 1}. ${name}`).join('\n')
+			`${longResults}\n\nShort string format:\n${shortResults}`
 		);
 	},
 };

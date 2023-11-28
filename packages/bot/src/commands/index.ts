@@ -1,3 +1,4 @@
+export * from './avatar.js';
 export * from './bloodwash.js';
 export * from './cwkpq.js';
 export * from './exp.js';
