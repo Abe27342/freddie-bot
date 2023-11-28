@@ -1,10 +1,12 @@
 import './register-env/index.js';
 import { createClient } from './client.js';
+import { createDb } from './db/index.js';
 
-const client = createClient({
+createClient({
 	token: process.env.DISCORD_TOKEN,
 	allowList: process.env.GUILD_ALLOW_LIST?.split(','),
 	blockList: process.env.GUILD_BLOCK_LIST?.split(','),
+	db: await createDb(),
 });
 
 // Error Handling
