@@ -7,3 +7,4 @@ export * from './maple.js';
 export * from './partyroll.js';
 export * from './remind.js';
 export * from './serverinfo.js';
+export * from './washes.js';

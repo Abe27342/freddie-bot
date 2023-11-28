@@ -15,7 +15,6 @@ It uses [pnpm](https://pnpm.io/).
 
 TODO:
 
--   washes
 -   levels
 -   boss timers
 -   random extra pqs (lmpq?)
