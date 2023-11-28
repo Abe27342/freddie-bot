@@ -53,6 +53,14 @@ export const remindme: Command = {
 			});
 			return;
 		}
+
+		if (delta > 1000 * 60 * 60 * 24 * 365 * 2) {
+			await interaction.reply({
+				content: 'Time delta must be less than 2 years.',
+				ephemeral: true,
+			});
+			return;
+		}
 		const expiration = Date.now() + delta;
 		const channelId = interaction.channelId;
 		const message = `Remind <@${
