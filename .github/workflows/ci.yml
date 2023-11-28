@@ -49,4 +49,6 @@ jobs:
 
             - name: Deploy commands to production
               run: pnpm run --filter=@freddie-bot/bot update-commands:prod
+              env:
+                  DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
               if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
