@@ -48,5 +48,5 @@ jobs:
               run: npm run test
 
             - name: Deploy commands to production
-              run: pnpm run update-commands:prod
+              run: pnpm run --filter=@freddie-bot/bot update-commands:prod
               if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
