@@ -27,51 +27,48 @@ const msPer = {
 // Note: more than 25 bosses are supported, but the discord API caps choices at 25. So we implement autocomplete
 // to keep the experience ok.
 const bosses = new Map<Boss, number>([
-	['anego', 1 * msPer.minute],
-	['samurai', 0.5 * msPer.minute],
+	['anego', 8 * msPer.hour],
+	['samurai', 11 * msPer.hour],
 	['mano', 1 * msPer.hour],
-	['faust', 1],
-	['clang', 1],
-	['timer', 1],
-	['mushmom', 1],
-	['dyle', 1],
-	['zmushmom', 1],
-	['fox', 1],
-	['taeroon', 1],
-	['sagecat', 1],
-	['eliza', 1],
-	['snowman', 1],
-	['manon', 1],
-	['griffey', 1],
-	['pianusl', 1],
-	['pianusr', 1],
-	['stumpy', 1],
-	['balrog', 1],
-	['deo', 1],
-	['seruf', 1],
-	['zeno', 1],
-	['kimera', 1],
-	['levi', 1],
-	['dodo', 1],
-	['lilynouch', 1],
-	['lyka', 1],
-	['bigfoot', 1],
-	['crow', 1],
-	['spirit', 1],
-	['shade', 1],
-	['dummy', 1],
-	['riche', 1],
-	['witch', 1],
-	['camera', 1],
-	['scholar', 1],
-	['rurumo', 1],
-	['deetnroi', 1],
+	['faust', 2 * msPer.hour],
+	['clang', 2 * msPer.hour],
+	['timer', 2 * msPer.hour],
+	['mushmom', 2 * msPer.hour],
+	['dyle', 2 * msPer.hour],
+	['zmushmom', 2 * msPer.hour],
+	['fox', 3 * msPer.hour],
+	['taeroon', 3 * msPer.hour],
+	['sagecat', 3 * msPer.hour],
+	['eliza', 3 * msPer.hour],
+	['snowman', 3 * msPer.hour],
+	['manon', 1.5 * msPer.hour],
+	['griffey', 1.5 * msPer.hour],
+	['pianusl', 36 * msPer.hour],
+	['pianusr', 24 * msPer.hour],
+	['stumpy', 1 * msPer.hour],
+	['balrog', 3 * msPer.hour],
+	['deo', 1 * msPer.hour],
+	['seruf', 1 * msPer.hour],
+	['zeno', 2 * msPer.hour],
+	['kimera', 3 * msPer.hour],
+	['levi', 4 * msPer.hour],
+	['dodo', 4 * msPer.hour],
+	['lilynouch', 4 * msPer.hour],
+	['lyka', 4 * msPer.hour],
+	// TODO: Add bigfoot, make it intuitive. Different maps have different spawns.
+	// ['bigfoot', 1],
+	['crow', 23 * msPer.hour],
+	['spirit', 12 * msPer.hour],
+	['shade', 3 * msPer.hour],
+	['dummy', 3 * msPer.hour],
+	['riche', 3 * msPer.hour],
+	['witch', 3 * msPer.hour],
+	['camera', 3 * msPer.hour],
+	['scholar', 3 * msPer.hour],
+	['rurumo', 40 * msPer.minute],
+	['deetnroi', 40 * msPer.minute],
 ]);
 const bossNames = Array.from(bosses.keys());
-
-const bossNameUsageHelpMessage = `This boss is not supported. Select one of: ${bossNames.join(
-	', '
-)}.`;
 
 export const bosstimer: Command = {
 	data: new SlashCommandBuilder()
@@ -177,11 +174,67 @@ export const bosstimer: Command = {
 	},
 
 	async initialize(client: FreddieBotClient): Promise<void> {
-		(client as HasTimerAggregators)[timerSymbol] = createChannelInstancer();
-		// TODO: Populate from db here.
-		// Should be a query -> bunch of createTimerAggregator calls with non-empty lists.
+		const instancer =
+			createChannelInstancer<DiscordChannelScopedTimerAggregator>();
+		(client as HasTimerAggregators)[timerSymbol] = instancer;
+		const existingTimers = await client.bosses.getExistingTimers();
+		for (const { name, channelId, channel, expiration } of existingTimers) {
+			const timerAggregator = getTimerAggregatorForChannel(
+				client,
+				channelId
+			);
+			timerAggregator.addBossTimer(name, expiration, [channel]);
+		}
 	},
 };
+
+function getTimerAggregatorForChannel(
+	client: FreddieBotClient,
+	channelId: string
+): DiscordChannelScopedTimerAggregator {
+	const clientReadyP = client.isReady()
+		? Promise.resolve()
+		: new Promise((resolve) =>
+				(client as FreddieBotClient).once('ready', resolve)
+		  );
+	const instancer = (client as HasTimerAggregators)[timerSymbol];
+	const timerAggregator = instancer.getOrCreate(channelId, () =>
+		createTimerAggregator(async (name, channels, expiration) => {
+			if (!client.isReady()) {
+				await clientReadyP;
+			}
+			const sendTimerReminder = async () => {
+				const clearTimersP = client.bosses.clearBossTimer(
+					name,
+					channelId,
+					channels
+				);
+				const discordChannel = await client.channels.fetch(channelId);
+				if (timerAggregator.isEmpty) {
+					instancer.delete(channelId);
+				}
+				assert(
+					discordChannel.isTextBased(),
+					'Attempted to send bosstimer reminder to non-text-based channel.'
+				);
+				const respawnTimeMs = bosses.get(name);
+				assert(respawnTimeMs !== undefined, `Unexpected boss: ${name}`);
+				await Promise.all([
+					clearTimersP,
+					discordChannel?.send(
+						`**${name}** is spawning between now and ${shortTime(
+							expiration + 2 * respawnTimeMs * RESPAWN_VARIANCE
+						)} on the following channels: ${channels.join(', ')}.`
+					),
+				]);
+			};
+
+			// This ensures errors get propagated to the client.
+			client.pushAsyncWork('boss-timer', sendTimerReminder());
+		})
+	);
+	return timerAggregator;
+}
 
 type HasTimerAggregators = FreddieBotClient & {
 	[timerSymbol]: ChannelInstancer<DiscordChannelScopedTimerAggregator>;
@@ -196,63 +249,94 @@ function getTimerAggregatorInstancer(
 	return instancer;
 }
 
-function parseChannelArg(arg: string): number[] | undefined {
-	if (arg === 'all') {
-		return Array.from({ length: ML_CHANNELS }, (_, i) => i + 1);
+async function parseAndValidateChannel(
+	interaction: ChatInputCommandInteraction
+): Promise<number[] | undefined> {
+	const arg = interaction.options.getString(CHANNEL_ARG);
+	if (arg.toLowerCase() === 'all') {
+		return Array.from(allChannels);
 	}
+
+	let channels: number[];
 	try {
-		return arg.split(' ').map((c) => parseInt(c, 10));
+		channels = arg.split(' ').map((c) => parseInt(c, 10));
 	} catch (error) {
+		await interaction.reply({
+			ephemeral: true,
+			content:
+				'Invalid channel argument. Please specify a space-separate list of numbers, or "all".',
+		});
 		return undefined;
 	}
+
+	if (channels.some((channel) => channel < 1 || channel > ML_CHANNELS)) {
+		await interaction.reply({
+			ephemeral: true,
+			content: `Invalid channel argument. Channels must be between 1 and ${ML_CHANNELS}.`,
+		});
+		return undefined;
+	}
+
+	return channels;
+}
+
+async function parseAndValidateName(
+	interaction: ChatInputCommandInteraction
+): Promise<{ respawnCooldownMs: number; name: Boss } | undefined> {
+	const name = interaction.options.getString(NAME_ARG);
+	const respawnCooldownMs = bosses.get(name);
+	if (respawnCooldownMs === undefined) {
+		await interaction.reply({
+			ephemeral: true,
+			content: `This boss is not supported. Select one of: ${bossNames.join(
+				', '
+			)}.`,
+		});
+		return;
+	}
+	return { respawnCooldownMs, name };
 }
 
 async function addBossTimer(
 	interaction: ChatInputCommandInteraction<CacheType>
 ): Promise<void> {
-	const name = interaction.options.getString(NAME_ARG);
-	const channels = parseChannelArg(
-		interaction.options.getString(CHANNEL_ARG)
-	);
-	if (channels === undefined) {
-		await interaction.reply(
-			'Invalid channel argument. Please specify a space-separate list of numbers, or "all".'
-		);
-		return;
-	}
-	const respawnTimeMs = bosses.get(name);
-	if (respawnTimeMs === undefined) {
-		await interaction.reply(bossNameUsageHelpMessage);
+	const [channels, nameInfo] = await Promise.all([
+		parseAndValidateChannel(interaction),
+		parseAndValidateName(interaction),
+	]);
+	if (channels === undefined || nameInfo === undefined) {
 		return;
 	}
 
-	const instancer = getTimerAggregatorInstancer(interaction);
-	const timerAggregator = instancer.getOrCreate(interaction.channelId, () =>
-		createTimerAggregator([], async (name, channels, expiration) => {
-			// clearing boss timer is already good... need to clear from db here.
-			// TODO: try-catch this, error handling is on u
-			await interaction.channel?.send(
-				`**${name}** is spawning between now and <t:${Math.floor(
-					(expiration + 2 * respawnTimeMs * RESPAWN_VARIANCE) / 1000
-				)}:t> on the following channels: ${channels.join(', ')}.`
-			);
-			if (timerAggregator.isEmpty) {
-				instancer.delete(interaction.channelId);
-			}
-		})
-	);
-	timerAggregator.addBossTimer(
-		name,
-		Date.now() + respawnTimeMs * (1 - RESPAWN_VARIANCE),
-		channels
-	);
+	const { name, respawnCooldownMs } = nameInfo;
+
+	const client = interaction.client as FreddieBotClient;
+
+	const respawnTimeMs =
+		Date.now() + respawnCooldownMs * (1 - RESPAWN_VARIANCE);
+	await Promise.all([
+		interaction.deferReply(),
+		client.bosses.addBossTimers(
+			channels.map((channel) => ({
+				name,
+				channel,
+				expiration: respawnTimeMs,
+				channelId: interaction.channelId,
+			}))
+		),
+	]);
+
+	const { channelId } = interaction;
+	const timerAggregator = getTimerAggregatorForChannel(client, channelId);
+
+	timerAggregator.addBossTimer(name, respawnTimeMs, channels);
 
 	if (channels.length > 1) {
-		await interaction.reply(
+		await interaction.editReply(
 			`${name} timer added on channels: ${channels.join(', ')}.`
 		);
 	} else {
-		await interaction.reply(
+		await interaction.editReply(
 			`${name} timer added on channel ${channels[0]}.`
 		);
 	}
@@ -261,10 +345,9 @@ async function addBossTimer(
 async function showBossTimers(
 	interaction: ChatInputCommandInteraction<CacheType>
 ): Promise<void> {
-	const name = interaction.options.getString(NAME_ARG);
-	const respawnTimeMs = bosses.get(name);
-	if (respawnTimeMs === undefined) {
-		await interaction.reply(bossNameUsageHelpMessage);
+	const { name, respawnCooldownMs } =
+		(await parseAndValidateName(interaction)) ?? {};
+	if (name === undefined || respawnCooldownMs === undefined) {
 		return;
 	}
 
@@ -290,7 +373,7 @@ async function showBossTimers(
 					`Channel ${t.channel}: between ${shortTime(
 						t.expiration
 					)} and ${shortTime(
-						t.expiration + respawnTimeMs * RESPAWN_VARIANCE
+						t.expiration + respawnCooldownMs * RESPAWN_VARIANCE
 					)}`
 			)
 			.join('\n')}`
@@ -304,21 +387,15 @@ function shortTime(ms: number): string {
 async function deleteBossTimer(
 	interaction: ChatInputCommandInteraction<CacheType>
 ): Promise<void> {
-	const name = interaction.options.getString(NAME_ARG);
-	const channels = parseChannelArg(
-		interaction.options.getString(CHANNEL_ARG)
-	);
-	if (channels === undefined) {
-		await interaction.reply(
-			'Invalid channel argument. Please specify a space-separate list of numbers, or "all".'
-		);
+	const [channels, nameInfo] = await Promise.all([
+		parseAndValidateChannel(interaction),
+		parseAndValidateName(interaction),
+	]);
+	if (channels === undefined || nameInfo === undefined) {
 		return;
 	}
-	const respawnTimeMs = bosses.get(name);
-	if (respawnTimeMs === undefined) {
-		await interaction.reply(bossNameUsageHelpMessage);
-		return;
-	}
+
+	const { name } = nameInfo;
 
 	const instancer = getTimerAggregatorInstancer(interaction);
 	const timerAggregator = instancer.get(interaction.channelId);
@@ -328,23 +405,40 @@ async function deleteBossTimer(
 	}
 
 	const previousTimers = timerAggregator.getExistingTimers(name);
+	const removedTimers = previousTimers
+		.filter((timer) => channels.includes(timer.channel))
+		.map((t) => t.channel);
+
+	if (removedTimers.length === 0) {
+		await interaction.reply('No timers were pending for this boss.');
+		return;
+	}
 	timerAggregator.clearBossTimer(name, channels);
-	const removedTimers = previousTimers.filter((timer) =>
-		channels.includes(timer.channel)
-	);
-	// TODO: Remove database entries for removedTimers.
-	// TODO: generally audit this file for reply deferral.
 
 	if (timerAggregator.isEmpty) {
 		instancer.delete(interaction.channelId);
 	}
 
-	let msg = `${name} timer removed on channels: ${channels.join(', ')}.`;
+	const client = interaction.client as FreddieBotClient;
+	await Promise.all([
+		interaction.deferReply(),
+		client.bosses.clearBossTimer(
+			name,
+			interaction.channelId,
+			removedTimers
+		),
+	]);
+
+	let msg = `${name} timer removed on ${
+		removedTimers.length === 1
+			? `channel ${removedTimers[0]}`
+			: `channels: ${removedTimers.join(', ')}`
+	}.`;
 
 	if (removedTimers.length !== channels.length) {
 		msg += ' No timer was set on remaining channels.';
 	}
-	await interaction.reply(msg);
+	await interaction.editReply(msg);
 }
 
 interface ChannelInstancer<T> {
@@ -389,7 +483,6 @@ const allChannels = Array.from({ length: ML_CHANNELS }, (_, i) => i + 1);
  * beware: onTimerExpired does not propagate errors. Creator is expected to handle them appropriately.
  */
 function createTimerAggregator(
-	initialTimers: { name: Boss; expiration: number; channel: number }[],
 	onTimerExpired: (
 		name: Boss,
 		channels: number[],
@@ -443,10 +536,6 @@ function createTimerAggregator(
 					round(channelTimers.get(channel)) === round(expiration)
 			),
 		};
-	}
-
-	for (const { name, expiration, channel } of initialTimers) {
-		addTimer(name, expiration, channel);
 	}
 
 	function recomputeNextTimeout(name: Boss): void {

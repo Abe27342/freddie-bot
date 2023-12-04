@@ -10,7 +10,11 @@ dotenv.config({
 export interface BossTimerStorage {
 	addBossTimers(timer: BossTimer[]): Promise<void>;
 	getExistingTimers(): Promise<BossTimer[]>;
-	clearBossTimer(id: DbId): Promise<void>;
+	clearBossTimer(
+		name: string,
+		channelId: string,
+		channels: number[]
+	): Promise<void>;
 }
 
 export interface FreddieBotDb extends BossTimerStorage {
@@ -59,8 +63,16 @@ export async function createDb(): Promise<FreddieBotDb> {
 		return result;
 	}
 
-	async function clearBossTimer(id: DbId): Promise<void> {
-		await timers.deleteMany({ id });
+	async function clearBossTimer(
+		name: string,
+		channelId: string,
+		channels: number[]
+	): Promise<void> {
+		await timers.deleteMany({
+			name,
+			channelId,
+			channel: { $in: channels },
+		});
 	}
 
 	async function addBossTimers(timersToInsert: BossTimer[]): Promise<void> {

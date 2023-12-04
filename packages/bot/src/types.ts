@@ -3,7 +3,7 @@ import type { Command } from './commands/types';
 import type { InteractionHandler } from './interactions/types';
 import { BossTimerStorage, FreddieBotDb } from './db';
 
-export type AsyncWorkTypes = 'command';
+export type AsyncWorkTypes = 'command' | 'boss-timer';
 
 /**
  * Unique id for a database entry.
@@ -32,11 +32,6 @@ export interface Reminder {
 }
 
 export interface BossTimer {
-	/**
-	 * Unique id for this timer.
-	 */
-	id: DbId;
-
 	/**
 	 * Boss name.
 	 */
