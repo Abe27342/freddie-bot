@@ -1,20 +1,22 @@
 import { Client, Collection, Interaction } from 'discord.js';
 import type { Command } from './commands/types';
 import type { InteractionHandler } from './interactions/types';
-import { FreddieBotDb } from './db';
+import { BossTimerStorage, FreddieBotDb } from './db';
 
 export type AsyncWorkTypes = 'command';
 
 /**
- * Unique id for a reminder.
+ * Unique id for a database entry.
+ * TODO: Rather than determine these client-side, we should be able to re-use cosmosDB-generated IDs
+ * which is likely slightly cheaper.
  */
-export type ReminderId = string & { _brand: 'ReminderId' };
+export type DbId = string & { _brand: 'ReminderId' };
 
 export interface Reminder {
 	/**
 	 * Unique id for this reminder.
 	 */
-	id: ReminderId;
+	id: DbId;
 	/**
 	 * Ms past epoch when the reminder should be sent.
 	 */
@@ -27,6 +29,31 @@ export interface Reminder {
 	 * Message contents of the reminder.
 	 */
 	message: string;
+}
+
+export interface BossTimer {
+	/**
+	 * Unique id for this timer.
+	 */
+	id: DbId;
+
+	/**
+	 * Boss name.
+	 */
+	name: string;
+	/**
+	 * Channel ID to send the timer reminder to.
+	 */
+	channelId: string;
+	/**
+	 * Ms past epoch when the boss may start spawning.
+	 */
+	expiration: number;
+
+	/**
+	 * Channel the boss is spawning in.
+	 */
+	channel: number;
 }
 
 export interface ClientOptions {
@@ -99,4 +126,6 @@ export interface FreddieBotClient extends Client<boolean> {
 	ensurePendingWorkProcessed(): Promise<void>;
 
 	enqueueReminder(reminder: Omit<Reminder, 'id'>): void;
+
+	bosses: BossTimerStorage;
 }

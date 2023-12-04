@@ -4,14 +4,14 @@
 
 import { Client } from 'discord.js';
 import { Random, MersenneTwister19937 } from 'random-js';
-import { Reminder, ReminderId } from './types';
+import { Reminder, DbId } from './types';
 import { FreddieBotDb } from './db';
 
 const random = new Random(MersenneTwister19937.autoSeed());
 
 export interface ReminderQueue {
-	setReminder(reminder: Omit<Reminder, 'id'>): Promise<ReminderId>;
-	clearReminder(id: ReminderId): void;
+	setReminder(reminder: Omit<Reminder, 'id'>): Promise<DbId>;
+	clearReminder(id: DbId): void;
 }
 
 export interface ReminderQueueOptions {
@@ -26,12 +26,10 @@ export function createReminderQueue(
 	db: FreddieBotDb,
 	options: ReminderQueueOptions
 ): ReminderQueue {
-	const reminderIdToTimeoutId = new Map<ReminderId, NodeJS.Timeout>();
+	const reminderIdToTimeoutId = new Map<DbId, NodeJS.Timeout>();
 
-	async function setReminder(
-		reminder: Omit<Reminder, 'id'>
-	): Promise<ReminderId> {
-		const id = random.uuid4() as ReminderId;
+	async function setReminder(reminder: Omit<Reminder, 'id'>): Promise<DbId> {
+		const id = random.uuid4() as DbId;
 		const remainingTime = reminder.expiration - Date.now();
 		// If reminder isn't happening for a while, don't bother keeping it around in memory.
 		if (remainingTime < 2 * options.queryInterval) {
@@ -49,7 +47,7 @@ export function createReminderQueue(
 		reminderIdToTimeoutId.set(reminder.id, timeoutId);
 	}
 
-	async function clearReminder(id: ReminderId): Promise<void> {
+	async function clearReminder(id: DbId): Promise<void> {
 		await db.clearReminder(id);
 		const timeoutId = reminderIdToTimeoutId.get(id);
 		if (timeoutId) {

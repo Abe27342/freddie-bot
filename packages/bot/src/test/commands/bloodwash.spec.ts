@@ -14,7 +14,7 @@ describe('bloodwash', () => {
 	beforeEach(async () => {
 		mockDiscord = new MockDiscord();
 		serverState = mockDiscord.serverState;
-		client = createClient({
+		client = await createClient({
 			token: 'mock-token',
 			baseClient: mockDiscord.getClient(),
 			db: makeMockDb(),
