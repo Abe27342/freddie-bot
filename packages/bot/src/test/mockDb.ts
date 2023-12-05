@@ -1,9 +1,12 @@
 import { FreddieBotDb } from '../db';
 import { Reminder, DbId, BossTimer } from '../types';
 
-export function makeMockDb(state: Reminder[] = []): FreddieBotDb {
-	const reminders = state;
-
+export function makeMockDb(
+	{ reminders, timers }: { reminders: Reminder[]; timers: BossTimer[] } = {
+		reminders: [],
+		timers: [],
+	}
+): FreddieBotDb {
 	async function getRemindersBefore(time: number): Promise<Reminder[]> {
 		return reminders.filter((reminder) => reminder.expiration < time);
 	}
@@ -21,15 +24,27 @@ export function makeMockDb(state: Reminder[] = []): FreddieBotDb {
 	}
 
 	async function getExistingTimers(): Promise<BossTimer[]> {
-		throw new Error('not implemented');
+		return [...timers];
 	}
 
-	async function clearBossTimer(id: DbId): Promise<void> {
-		throw new Error('not implemented');
+	async function clearBossTimer(
+		name: string,
+		channelId: string,
+		channels: number[]
+	): Promise<void> {
+		for (let i = timers.length; i--; i >= 0) {
+			if (
+				timers[i].name === name &&
+				timers[i].channelId === channelId &&
+				channels.includes(timers[i].channel)
+			) {
+				timers.splice(i, 1);
+			}
+		}
 	}
 
-	async function addBossTimers(timers: BossTimer[]): Promise<void> {
-		throw new Error('not implemented');
+	async function addBossTimers(newTimers: BossTimer[]): Promise<void> {
+		timers.push(...newTimers);
 	}
 
 	return {
