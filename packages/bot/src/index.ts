@@ -2,13 +2,6 @@ import './register-env/index.js';
 import { createClient } from './client.js';
 import { createDb } from './db/index.js';
 
-createClient({
-	token: process.env.DISCORD_TOKEN,
-	allowList: process.env.GUILD_ALLOW_LIST?.split(','),
-	blockList: process.env.GUILD_BLOCK_LIST?.split(','),
-	db: await createDb(),
-});
-
 // Error Handling
 process.on('uncaughtException', (err) => {
 	console.log('Uncaught Exception: ' + err);
@@ -22,4 +15,11 @@ process.on('unhandledRejection', (reason, promise) => {
 		' reason: ',
 		(reason as any).message
 	);
+});
+
+await createClient({
+	token: process.env.DISCORD_TOKEN,
+	allowList: process.env.GUILD_ALLOW_LIST?.split(','),
+	blockList: process.env.GUILD_BLOCK_LIST?.split(','),
+	db: await createDb(),
 });

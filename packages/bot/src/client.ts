@@ -28,14 +28,14 @@ function getInteractionsCollection(): Collection<string, InteractionHandler> {
 	return interactions;
 }
 
-export function createClient({
+export async function createClient({
 	token,
 	allowList,
 	blockList,
 	baseClient,
 	db,
 	onError: onErrorArg,
-}: ClientOptions): FreddieBotClient {
+}: ClientOptions): Promise<FreddieBotClient> {
 	const client = (baseClient ??
 		new Client({
 			intents: [GatewayIntentBits.Guilds],
@@ -78,6 +78,12 @@ export function createClient({
 	client.enqueueReminder = async (reminder) =>
 		reminderQueue.setReminder(reminder);
 
+	client.bosses = db;
+
+	await Promise.all(
+		client.commands.map((command) => command.initialize?.(client))
+	);
+
 	client.once('ready', async () => {
 		console.log('Ready!');
 	});
@@ -92,20 +98,17 @@ export function createClient({
 	}
 
 	client.on('interactionCreate', (interaction) => {
-		if (shouldProcessInteraction(interaction.guild.id)) {
-			console.log(
-				`Processing interaction for guild: ${interaction.guild.id}`
-			);
+		const interactionLocationId =
+			interaction.guildId ?? interaction.channelId;
+		if (shouldProcessInteraction(interactionLocationId)) {
+			console.log(`Processing interaction for: ${interactionLocationId}`);
 		} else {
-			console.log(
-				`Ignoring interaction for guild: ${interaction.guild.id}`
-			);
+			console.log(`Ignoring interaction for: ${interactionLocationId}`);
 			return;
 		}
 
 		client.pushAsyncWork(
 			'command',
-			// TODO: Handle DMs.
 			runInteraction(interaction),
 			interaction
 		);
@@ -113,19 +116,16 @@ export function createClient({
 
 	async function runInteraction(interaction: Interaction): Promise<void> {
 		const client = interaction.client as FreddieBotClient;
-		let handler: {
-			execute: (interaction: Interaction) => Promise<void>;
-			requiresSerializedContext?: boolean;
-		};
 		if (interaction.isChatInputCommand()) {
-			handler = client.commands.get(interaction.commandName);
-		} else if (interaction.isSelectMenu() || interaction.isButton()) {
-			handler = client.interactions.get(interaction.customId);
-		} else {
-			return;
+			const handler = client.commands.get(interaction.commandName);
+			await handler.execute(interaction);
+		} else if (interaction.isStringSelectMenu() || interaction.isButton()) {
+			const handler = client.interactions.get(interaction.customId);
+			await handler.execute(interaction);
+		} else if (interaction.isAutocomplete()) {
+			const handler = client.commands.get(interaction.commandName);
+			handler.autocomplete?.(interaction);
 		}
-
-		await handler.execute(interaction);
 	}
 
 	client.login(token);

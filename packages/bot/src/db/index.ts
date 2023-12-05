@@ -1,5 +1,5 @@
 import { MongoClient } from 'mongodb';
-import { Reminder, ReminderId } from '../types';
+import { BossTimer, Reminder, DbId } from '../types';
 import { dirname } from 'path';
 import { fileURLToPath } from 'node:url';
 import * as dotenv from 'dotenv';
@@ -7,9 +7,19 @@ dotenv.config({
 	path: `${dirname(fileURLToPath(import.meta.url))}/../../../.env`,
 });
 
-export interface FreddieBotDb {
+export interface BossTimerStorage {
+	addBossTimers(timer: BossTimer[]): Promise<void>;
+	getExistingTimers(): Promise<BossTimer[]>;
+	clearBossTimer(
+		name: string,
+		channelId: string,
+		channels: number[]
+	): Promise<void>;
+}
+
+export interface FreddieBotDb extends BossTimerStorage {
 	getRemindersBefore(time: number): Promise<Reminder[]>;
-	clearReminder(id: ReminderId): Promise<void>;
+	clearReminder(id: DbId): Promise<void>;
 	addReminder(reminder: Reminder): Promise<void>;
 }
 
@@ -31,6 +41,7 @@ export async function createDb(): Promise<FreddieBotDb> {
 			: 'freddie-bot-db'
 	);
 	const reminders = db.collection<Reminder>('reminders');
+	const timers = db.collection<BossTimer>('boss-timers');
 
 	async function getRemindersBefore(time: number): Promise<Reminder[]> {
 		const result = await reminders
@@ -39,7 +50,7 @@ export async function createDb(): Promise<FreddieBotDb> {
 		return result;
 	}
 
-	async function clearReminder(id: ReminderId): Promise<void> {
+	async function clearReminder(id: DbId): Promise<void> {
 		await reminders.deleteMany({ id });
 	}
 
@@ -47,9 +58,39 @@ export async function createDb(): Promise<FreddieBotDb> {
 		await reminders.insertOne(reminder);
 	}
 
+	async function getExistingTimers(): Promise<BossTimer[]> {
+		const result = await timers.find().toArray();
+		return result;
+	}
+
+	async function clearBossTimer(
+		name: string,
+		channelId: string,
+		channels: number[]
+	): Promise<void> {
+		await timers.deleteMany({
+			name,
+			channelId,
+			channel: { $in: channels },
+		});
+	}
+
+	async function addBossTimers(timersToInsert: BossTimer[]): Promise<void> {
+		await timers.insertMany(timersToInsert);
+	}
+
+	// Clear stale timers (>4 hours old) on startup.
+	await timers.deleteMany({
+		expiration: { $lt: Date.now() - 1000 * 60 * 60 * 4 },
+	});
+
 	return {
 		getRemindersBefore,
 		clearReminder,
 		addReminder,
+
+		getExistingTimers,
+		clearBossTimer,
+		addBossTimers,
 	};
 }
