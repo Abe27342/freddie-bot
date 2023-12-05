@@ -98,20 +98,17 @@ export async function createClient({
 	}
 
 	client.on('interactionCreate', (interaction) => {
-		if (shouldProcessInteraction(interaction.guild.id)) {
-			console.log(
-				`Processing interaction for guild: ${interaction.guild.id}`
-			);
+		const interactionLocationId =
+			interaction.guildId ?? interaction.channelId;
+		if (shouldProcessInteraction(interactionLocationId)) {
+			console.log(`Processing interaction for: ${interactionLocationId}`);
 		} else {
-			console.log(
-				`Ignoring interaction for guild: ${interaction.guild.id}`
-			);
+			console.log(`Ignoring interaction for: ${interactionLocationId}`);
 			return;
 		}
 
 		client.pushAsyncWork(
 			'command',
-			// TODO: Handle DMs.
 			runInteraction(interaction),
 			interaction
 		);
