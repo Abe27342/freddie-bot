@@ -137,13 +137,18 @@ async function surfaceError(
 	source: AsyncWorkTypes,
 	interaction?: Interaction
 ): Promise<void> {
-	console.error(`Error during ${source}: ${error}`);
+	console.error(`Error during ${source}: ${error}, ${error.stack}`);
 	try {
 		if (interaction?.isRepliable() && !interaction.replied) {
-			await interaction.reply({
-				content: `There was an error while executing this ${source}!`,
-				ephemeral: true,
-			});
+			const content = `There was an error while executing this ${source}!`;
+			if (interaction.deferred) {
+				await interaction.editReply({ content });
+			} else {
+				await interaction.reply({
+					content: `There was an error while executing this ${source}!`,
+					ephemeral: true,
+				});
+			}
 		}
 	} catch (err) {
 		console.log('Failed to notify user of above error:', err, source);
