@@ -1,4 +1,6 @@
+import { assert } from '../../utils/index.js';
 import { Item, MAPLESTORY_BASE_API } from './maplestory.js';
+import { JSDOM } from 'jsdom';
 
 export const MAPLELEGENDS_BASE_API = 'https://maplelegends.com';
 
@@ -78,4 +80,43 @@ export async function getUniqueUsers(): Promise<
 		return undefined;
 	}
 	return await response.json();
+}
+
+export interface LevelEntry {
+	level: number;
+	date: Date;
+}
+
+export async function getCharacterLevels(
+	name: string
+): Promise<LevelEntry[] | undefined> {
+	// Unfortunately there isn't an API for this, so we need to scrape the data from the rankings page.
+	const url = new URL(`/levels`, MAPLELEGENDS_BASE_API);
+	url.searchParams.append('name', name);
+	const response = await fetch(url.href);
+	const dom = new JSDOM(await response.text());
+	// This is obviously very brittle, but should return table rows for the levels table, including header.
+	const levelsTable = dom.window.document.querySelectorAll(
+		'#page-content > div:nth-child(2) > div > table > tbody > tr'
+	);
+
+	const levelEntries: { level: number; date: Date }[] = [];
+
+	levelsTable.forEach((row, index) => {
+		if (index === 0) {
+			assert(
+				!!row.children.item(0).textContent.match(/Level/) &&
+					!!row.children.item(1).textContent.match(/Date/),
+				'Expected to locate level/date table.'
+			);
+		} else {
+			levelEntries.push({
+				level: Number.parseInt(row.children.item(0).textContent, 10),
+				date: new Date(`${row.children.item(1).textContent} UTC`),
+			});
+		}
+	});
+
+	levelEntries.reverse();
+	return levelEntries;
 }
