@@ -28,11 +28,12 @@ export function isUnbanned(stats: Stats): stats is UnbannedStats {
 }
 
 export async function getCharacterAvatar(
-	name: string
+	name: string,
+	feetCenter = false
 ): Promise<{ items: Item[]; avatar: ArrayBuffer } | undefined> {
 	const avatarUrl = new URL('/api/getavatar', MAPLELEGENDS_BASE_API);
 	avatarUrl.searchParams.append('name', name);
-	const response = await fetch(avatarUrl.href);
+	let response = await fetch(avatarUrl.href);
 	const passthroughUrl = response.url;
 	const prefix = `${MAPLESTORY_BASE_API}/api/character/`;
 	if (!passthroughUrl.startsWith(prefix)) {
@@ -44,6 +45,14 @@ export async function getCharacterAvatar(
 	const start = passthroughUrl.indexOf(prefix) + prefix.length;
 	const end = passthroughUrl.lastIndexOf('/');
 	const encodedData = passthroughUrl.substring(start, end);
+	if (feetCenter) {
+		const newRequestUrl = new URL(passthroughUrl);
+		newRequestUrl.searchParams.set('renderMode', 'feetCenter');
+		response = await fetch(newRequestUrl.href);
+		if (!response.ok) {
+			throw new Error('Unable to get feet-centered avatar');
+		}
+	}
 	return {
 		items: JSON.parse(`[${decodeURI(encodedData)}]`),
 		avatar: await response.arrayBuffer(),
