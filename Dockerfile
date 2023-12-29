@@ -16,6 +16,4 @@ RUN pnpm install --frozen-lockfile -r --offline
 
 RUN npm run build
 
-COPY assets /assets/
-
 CMD npm run start:bot

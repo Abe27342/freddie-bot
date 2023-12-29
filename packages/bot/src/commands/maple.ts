@@ -7,6 +7,7 @@ import {
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import { createCanvas, loadImage, Image } from 'canvas';
+import { fileURLToPath } from 'node:url';
 import { Command } from './types';
 import {
 	Stats,
@@ -16,6 +17,10 @@ import {
 } from './apis/index.js';
 
 const NAME_ARG = 'name';
+const rootDir = path.join(
+	path.dirname(fileURLToPath(import.meta.url)),
+	'../../../../assets'
+);
 
 let assetsEnsured = false;
 export const maple: Command = {
@@ -45,7 +50,6 @@ export const maple: Command = {
 			return;
 		}
 
-		const dir = './assets';
 		const buffer = await renderCharacter(
 			Buffer.from(avatarInfo.avatar),
 			stats,
@@ -54,10 +58,10 @@ export const maple: Command = {
 
 		const filename = `${name}-${Date.now()}.png`;
 		if (!assetsEnsured) {
-			await fs.mkdir(dir, { recursive: true });
+			await fs.mkdir(rootDir, { recursive: true });
 			assetsEnsured = true;
 		}
-		const fullFilename = path.join(dir, filename);
+		const fullFilename = path.join(rootDir, filename);
 		await fs.writeFile(fullFilename, buffer);
 
 		const file = new AttachmentBuilder(fullFilename);
@@ -85,7 +89,7 @@ async function renderCharacter(
 	const ctx = canvas.getContext('2d');
 	ctx.fillStyle = '#0000ff';
 	const asset = assets[0];
-	const background = await loadImage(path.join('./assets', asset.name));
+	const background = await loadImage(path.join(rootDir, asset.name));
 	ctx.drawImage(
 		background,
 		asset.x,
