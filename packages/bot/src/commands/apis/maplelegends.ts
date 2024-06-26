@@ -27,6 +27,17 @@ export function isUnbanned(stats: Stats): stats is UnbannedStats {
 	return stats.name !== undefined;
 }
 
+// Helper for encoding/decoding URLs accepted by maplestory.io.
+const itemsCodec = {
+	encode(items: Item[]): string {
+		const stringified = JSON.stringify(items);
+		return encodeURI(stringified.substring(1, stringified.length - 1));
+	},
+	decode(encoded: string): Item[] {
+		return JSON.parse(`[${decodeURI(encoded)}]`);
+	},
+};
+
 export async function getCharacterAvatar(
 	name: string,
 	feetCenter = false
@@ -45,14 +56,32 @@ export async function getCharacterAvatar(
 	const start = passthroughUrl.indexOf(prefix) + prefix.length;
 	const end = passthroughUrl.lastIndexOf('/');
 	const encodedData = passthroughUrl.substring(start, end);
-	if (feetCenter) {
-		const newRequestUrl = new URL(passthroughUrl);
-		newRequestUrl.searchParams.set('renderMode', 'feetCenter');
-		response = await fetch(newRequestUrl.href);
+
+	let items = itemsCodec.decode(encodedData);
+	const isOldVersion = (item: Item) => parseInt(item.version, 10) < 251;
+	if (items.some(isOldVersion) || feetCenter) {
+		// Need to re-run the request, either because the items are out of date or the render mode
+		// returned by the ML API is wrong.
+		// Using V251 fixes some issues with newer hair/face not appearing.
+		items = items.map((item) =>
+			isOldVersion(item) ? { ...item, version: '251' } : item
+		);
+		const updatedUrl = new URL(
+			`/api/character/${itemsCodec.encode(
+				items
+			)}${passthroughUrl.substring(end)}`,
+			MAPLESTORY_BASE_API
+		);
+		updatedUrl.search = new URL(response.url).search;
+		if (feetCenter) {
+			updatedUrl.searchParams.set('renderMode', 'feetCenter');
+		}
+		response = await fetch(updatedUrl.href);
 		if (!response.ok) {
-			throw new Error('Unable to get feet-centered avatar');
+			throw new Error('Unable to get v251/feet-centered avatar.');
 		}
 	}
+
 	return {
 		items: JSON.parse(`[${decodeURI(encodedData)}]`),
 		avatar: await response.arrayBuffer(),
