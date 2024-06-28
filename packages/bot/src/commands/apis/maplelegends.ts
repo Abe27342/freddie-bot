@@ -38,6 +38,12 @@ const itemsCodec = {
 	},
 };
 
+const gmsVersion = '251';
+const forcedVersions = new Map<string | undefined, string>([
+	[undefined, gmsVersion],
+	['GMS', gmsVersion],
+]);
+
 export async function getCharacterAvatar(
 	name: string,
 	feetCenter = false
@@ -58,13 +64,20 @@ export async function getCharacterAvatar(
 	const encodedData = passthroughUrl.substring(start, end);
 
 	let items = itemsCodec.decode(encodedData);
-	const isOldVersion = (item: Item) => parseInt(item.version, 10) < 251;
-	if (items.some(isOldVersion) || feetCenter) {
+	const shouldApplyForcedVersion = (item: Item) =>
+		forcedVersions.has(item.region);
+	if (items.some(shouldApplyForcedVersion) || feetCenter) {
 		// Need to re-run the request, either because the items are out of date or the render mode
 		// returned by the ML API is wrong.
 		// Using V251 fixes some issues with newer hair/face not appearing.
 		items = items.map((item) =>
-			isOldVersion(item) ? { ...item, version: '251' } : item
+			shouldApplyForcedVersion(item)
+				? {
+						...item,
+						version:
+							forcedVersions.get(item.region) ?? item.version,
+				  }
+				: item
 		);
 		const updatedUrl = new URL(
 			`/api/character/${itemsCodec.encode(
