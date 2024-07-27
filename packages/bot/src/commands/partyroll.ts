@@ -33,18 +33,8 @@ function shuffle<T>(arr: T[], startingAt = 0): T[] {
 		if (j === result.length) {
 			result.push(arr[i]);
 		} else {
-			if (startingAt !== 0 && arr.length - startingAt < 20) {
-				// If only rolling in a small number of additional players, we use the naive O(n^2)
-				// variant which avoids changing the underlying order of the original roll at all
-				// while still being fair.
-				for (let k = i; k > j; k--) {
-					result[k] = result[k - 1];
-				}
-				result[j] = arr[i];
-			} else {
-				result.push(result[j]);
-				result[j] = arr[i];
-			}
+			result.push(result[j]);
+			result[j] = arr[i];
 		}
 	}
 	return result;
