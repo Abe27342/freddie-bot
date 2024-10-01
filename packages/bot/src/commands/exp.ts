@@ -236,7 +236,7 @@ export const exp: Command = {
 
 		if (requiredExp >= 0) {
 			await interaction.reply(
-				`Exp required: ${requiredExp.toLocaleString()}`
+				`Exp required from level ${startLevel} to ${endLevel}: ${requiredExp.toLocaleString()}`
 			);
 		} else {
 			await interaction.reply({
