@@ -1,4 +1,5 @@
 export * from './avatar.js';
+export * from './bank-balance.js';
 export * from './bosstimer.js';
 export * from './bloodwash.js';
 export * from './cwkpq.js';
