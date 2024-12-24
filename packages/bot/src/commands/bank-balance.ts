@@ -227,6 +227,7 @@ export const bankbalance: Command = {
 			string,
 			{ mesos: number; coins: number; characters: string[] }
 		>;
+		const bankNameToBank = new Map(banks.map((bank) => [bank.name, bank]));
 		const aggregatedEntries: AggregatedBankEntries = new Map();
 		for (const { bankName, mesos, coins, character } of entries) {
 			const current = aggregatedEntries.get(bankName) ?? {
@@ -248,7 +249,14 @@ export const bankbalance: Command = {
 			new EmbedBuilder().addFields(
 				{
 					name: 'Bank',
-					value: bankNames.join('\n'),
+					value: bankNames
+						.map((bankName) => {
+							const bank = bankNameToBank.get(bankName);
+							return bank !== undefined
+								? renderBankMd(bank)
+								: bankName;
+						})
+						.join('\n'),
 					inline: true,
 				},
 				{
