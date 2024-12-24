@@ -151,7 +151,8 @@ export const bankbalance: Command = {
 				content: [
 					'This command displays information about all recorded balances for a list of characters.',
 					'The following banking systems are supported:',
-					...banks.map((bank) => `\t- ${renderBankMd(bank)}`),
+					'',
+					...banks.map((bank) => `- ${renderBankMd(bank)}`),
 				].join('\n'),
 				ephemeral: true,
 			});
@@ -205,7 +206,7 @@ export const bankbalance: Command = {
 							'Failed to load data from the following banks:',
 							'',
 							failedToFetch.map(
-								(bank) => `\t- ${renderBankMd(bank)}`
+								(bank) => `- ${renderBankMd(bank)}`
 							),
 							'',
 							'If this is a persistent issue, please file an issue on GitHub.',
