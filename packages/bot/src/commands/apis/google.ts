@@ -1,7 +1,5 @@
 import '../../register-env/index.js';
-import { google } from 'googleapis';
-
-let isInitialized = false;
+import { google, sheets_v4 } from 'googleapis';
 
 /**
  * @param sheetId The ID of the spreadsheet to retrieve data from.
@@ -12,15 +10,11 @@ export async function querySpreadsheet<TRow extends any[]>(
 	sheetId: string,
 	range: string
 ): Promise<TRow[]> {
-	if (!isInitialized) {
-		// Do this lazily to allow module load in environments that don't have access to the google api key (ex: command deployment)
-		const auth = new google.auth.GoogleAuth({
-			credentials: JSON.parse(process.env.GOOGLE_API_KEY),
-			scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-		});
-		google.options({ auth });
-		isInitialized = true;
-	}
+	const auth = new google.auth.GoogleAuth({
+		credentials: JSON.parse(process.env.GOOGLE_API_KEY),
+		scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+	});
+	google.options({ auth });
 	const sheets = google.sheets({ version: 'v4' });
 	const response = await sheets.spreadsheets.values.get({
 		spreadsheetId: sheetId,
@@ -34,4 +28,47 @@ export async function querySpreadsheet<TRow extends any[]>(
 	}
 
 	return response.data.values as TRow[];
+}
+
+export async function createSheetFromTemplate({
+	name,
+	templateId,
+	folderId,
+}: {
+	name: string;
+	templateId: string;
+	folderId: string;
+}): Promise<string> {
+	const auth = new google.auth.GoogleAuth({
+		credentials: JSON.parse(process.env.GOOGLE_API_KEY),
+		scopes: ['https://www.googleapis.com/auth/drive.file'],
+	});
+	google.options({ auth });
+	const drive = google.drive({ version: 'v3' });
+	const file = await drive.files.copy({
+		fileId: templateId,
+		requestBody: {
+			name,
+			parents: [folderId],
+			mimeType: 'application/vnd.google-apps.spreadsheet',
+		},
+	});
+	return file.data.id;
+}
+
+export async function updateSheetValues(
+	params: sheets_v4.Params$Resource$Spreadsheets$Values$Batchupdate
+): Promise<void> {
+	const auth = new google.auth.GoogleAuth({
+		credentials: JSON.parse(process.env.GOOGLE_API_KEY),
+		scopes: ['https://www.googleapis.com/auth/drive.file'],
+	});
+	google.options({ auth });
+	const sheets = google.sheets({ version: 'v4' });
+	const response = await sheets.spreadsheets.values.batchUpdate(params);
+
+	if (response.status !== 200) {
+		console.log(response);
+		throw new Error(`Issue updating data: ${response.statusText}`);
+	}
 }
