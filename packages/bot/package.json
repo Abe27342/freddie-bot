@@ -26,6 +26,8 @@
 		"debug": "^4.3.4",
 		"discord.js": "^14.8.0",
 		"dotenv": "^16.0.2",
+		"google-auth-library": "^9.15.0",
+		"googleapis": "^144.0.0",
 		"jsdom": "^23.0.1",
 		"mongodb": "^6.3.0",
 		"random-js": "^2.1.0",
