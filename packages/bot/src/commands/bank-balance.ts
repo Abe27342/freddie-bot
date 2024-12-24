@@ -158,7 +158,6 @@ export const bankbalance: Command = {
 			return;
 		}
 
-		//
 		const characters = parseCharacters(
 			interaction.options.getString(CHARACTERS_ARG)
 		);
@@ -170,6 +169,7 @@ export const bankbalance: Command = {
 			return;
 		}
 
+		await interaction.deferReply();
 		const bankApiResponses = await Promise.all(
 			banks.map<
 				Promise<
@@ -219,14 +219,15 @@ export const bankbalance: Command = {
 				content:
 					'None of those characters were found in a supported bank! Try "/bankbalance help"?',
 				embeds,
-				ephemeral: true,
 			});
+			return;
 		}
 
 		type AggregatedBankEntries = Map<
 			string,
 			{ mesos: number; coins: number; characters: string[] }
 		>;
+		const bankNameToBank = new Map(banks.map((bank) => [bank.name, bank]));
 		const aggregatedEntries: AggregatedBankEntries = new Map();
 		for (const { bankName, mesos, coins, character } of entries) {
 			const current = aggregatedEntries.get(bankName) ?? {
@@ -248,7 +249,14 @@ export const bankbalance: Command = {
 			new EmbedBuilder().addFields(
 				{
 					name: 'Bank',
-					value: bankNames.join('\n'),
+					value: bankNames
+						.map((bankName) => {
+							const bank = bankNameToBank.get(bankName);
+							return bank !== undefined
+								? renderBankMd(bank)
+								: bankName;
+						})
+						.join('\n'),
 					inline: true,
 				},
 				{
@@ -285,7 +293,7 @@ export const bankbalance: Command = {
 			)
 		);
 
-		await interaction.reply({
+		await interaction.editReply({
 			embeds,
 		});
 	},
