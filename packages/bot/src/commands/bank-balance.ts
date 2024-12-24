@@ -158,7 +158,6 @@ export const bankbalance: Command = {
 			return;
 		}
 
-		//
 		const characters = parseCharacters(
 			interaction.options.getString(CHARACTERS_ARG)
 		);
@@ -170,6 +169,7 @@ export const bankbalance: Command = {
 			return;
 		}
 
+		await interaction.deferReply();
 		const bankApiResponses = await Promise.all(
 			banks.map<
 				Promise<
@@ -219,8 +219,8 @@ export const bankbalance: Command = {
 				content:
 					'None of those characters were found in a supported bank! Try "/bankbalance help"?',
 				embeds,
-				ephemeral: true,
 			});
+			return;
 		}
 
 		type AggregatedBankEntries = Map<
@@ -285,7 +285,7 @@ export const bankbalance: Command = {
 			)
 		);
 
-		await interaction.reply({
+		await interaction.editReply({
 			embeds,
 		});
 	},
