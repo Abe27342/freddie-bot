@@ -5,10 +5,18 @@ import {
 	SlashCommandBuilder,
 } from 'discord.js';
 import { Command } from './types';
-import { querySpreadsheet } from './apis/index.js';
+import {
+	createSheetFromTemplate,
+	querySpreadsheet,
+	updateSheetValues,
+} from './apis/index.js';
 import { assert } from '../utils/index.js';
 
 const CHARACTERS_ARG = 'characters';
+
+// Maximum number of rows that the template supports.
+// We could programatically generate more and copy the right formulas, but this is a pretty niche edge case.
+const TEMPLATE_ROW_LIMIT = 20;
 
 function parseCharacters(arg: string): string[] {
 	return arg.split(/\s/).filter((name) => name.length > 0);
@@ -143,8 +151,12 @@ class MilkFarmBank {
 	}
 }
 
+function sheetLink(id: string): string {
+	return `https://docs.google.com/spreadsheets/d/${id}`;
+}
+
 function renderBankMd(bank: Bank): string {
-	return `[${bank.name}](https://docs.google.com/spreadsheets/d/${bank.sheetId})`;
+	return `[${bank.name}](${sheetLink(bank.sheetId)})`;
 }
 
 function isNumber(val: any): val is number {
@@ -178,6 +190,10 @@ function rightAlign(lines: string[]): string[] {
 	);
 }
 
+function mdLink(text: string, url: string): string {
+	return `[${text}](${url})`;
+}
+
 export const bankbalance: Command = {
 	data: new SlashCommandBuilder()
 		.setName('bankbalance')
@@ -195,6 +211,21 @@ export const bankbalance: Command = {
 				)
 				.setDescription(
 					'Get a bank balance summary for a list of characters.'
+				)
+		)
+		.addSubcommand((builder) =>
+			builder
+				.setName('export')
+				.addStringOption((builder) =>
+					builder
+						.setName(CHARACTERS_ARG)
+						.setDescription(
+							'Whitespace-separated list of names to query for bank balances'
+						)
+						.setRequired(true)
+				)
+				.setDescription(
+					'Creates a google sheet containing a bank balance summary for a list of characters.'
 				)
 		)
 		.addSubcommand((builder) =>
@@ -264,7 +295,7 @@ export const bankbalance: Command = {
 						[
 							'Failed to load data from the following banks:',
 							'',
-							failedToFetch.map(
+							...failedToFetch.map(
 								(bank) => `- ${renderBankMd(bank)}`
 							),
 							'',
@@ -272,15 +303,6 @@ export const bankbalance: Command = {
 						].join('\n')
 					)
 			);
-		}
-
-		if (entries.length === 0) {
-			await interaction.reply({
-				content:
-					'None of those characters were found in a supported bank! Try "/bankbalance help"?',
-				embeds,
-			});
-			return;
 		}
 
 		type AggregatedBankEntries = Map<
@@ -305,57 +327,161 @@ export const bankbalance: Command = {
 		const bankNames = Array.from(aggregatedEntries.keys());
 		const entriesByBankName = Array.from(aggregatedEntries.values());
 
-		embeds.push(
-			new EmbedBuilder().addFields(
-				{
-					name: 'Bank',
-					value: bankNames
-						.map((bankName) => {
-							const bank = bankNameToBank.get(bankName);
-							return bank !== undefined
-								? renderBankMd(bank)
-								: bankName;
-						})
-						.join('\n'),
-					inline: true,
-				},
-				{
-					name: 'Mesos',
-					value: rightAlign(
-						entriesByBankName.map((entry) =>
-							entry.mesos.toLocaleString(undefined, {
-								maximumFractionDigits: 0,
-							})
-						)
-					).join('\n'),
-					inline: true,
-				},
-				{
-					name: 'Coins',
-					value: rightAlign(
-						entriesByBankName.map((entry) =>
-							entry.coins.toLocaleString(undefined, {
-								maximumFractionDigits: 2,
-								minimumFractionDigits: 2,
-							})
-						)
-					).join('\n'),
-					inline: true,
-				}
-				// 4th embed never gets inlined, even if the space is available.
-				// TODO: Could consider using a table system, or an alternate rendering style.
-				// {
-				// 	name: 'Characters',
-				// 	value: entriesByBankName
-				// 		.map((entry) => entry.characters)
-				// 		.join('\n'),
-				// 	inline: true,
-				// }
-			)
-		);
+		const getBank = (bankName: string) => {
+			const bank = bankNameToBank.get(bankName);
+			assert(bank !== undefined, `Unknown bank: ${bankName}`);
+			return bank;
+		};
 
-		await interaction.editReply({
-			embeds,
-		});
+		if (entries.length === 0) {
+			if (interaction.options.getSubcommand() === 'get') {
+				await interaction.reply({
+					content:
+						'None of those characters were found in a supported bank! Try "/bankbalance help"?',
+					embeds,
+				});
+				return;
+			} else {
+				await interaction.reply({
+					content: `None of those characters were found in a supported bank. You can make a copy of the template ${mdLink(
+						'here',
+						''
+					)} if you like..`,
+				});
+			}
+		}
+
+		if (interaction.options.getSubcommand() === 'get') {
+			embeds.push(
+				new EmbedBuilder().addFields(
+					{
+						name: 'Bank',
+						value: bankNames
+							.map((bankName) => renderBankMd(getBank(bankName)))
+							.join('\n'),
+						inline: true,
+					},
+					{
+						name: 'Mesos',
+						value: rightAlign(
+							entriesByBankName.map((entry) =>
+								entry.mesos.toLocaleString(undefined, {
+									maximumFractionDigits: 0,
+								})
+							)
+						).join('\n'),
+						inline: true,
+					},
+					{
+						name: 'Coins',
+						value: rightAlign(
+							entriesByBankName.map((entry) =>
+								entry.coins.toLocaleString(undefined, {
+									maximumFractionDigits: 2,
+									minimumFractionDigits: 2,
+								})
+							)
+						).join('\n'),
+						inline: true,
+					}
+					// 4th embed never gets inlined, even if the space is available.
+					// TODO: Could consider using a table system, or an alternate rendering style.
+					// {
+					// 	name: 'Characters',
+					// 	value: entriesByBankName
+					// 		.map((entry) => entry.characters)
+					// 		.join('\n'),
+					// 	inline: true,
+					// }
+				)
+			);
+			await interaction.editReply({
+				embeds,
+			});
+		} else {
+			await interaction.editReply({
+				embeds,
+				content: 'Creating google sheet...',
+			});
+
+			const folderId = '1lQN7hnw2tHE5a2afeh3MM9N0LGweMhXz';
+			const templateId = '179-BbVGXY4YUPBrt_WW1bHteXwwSoHAcAIrEsTKDujo';
+
+			const sheetId = await createSheetFromTemplate({
+				name: `Bank aggregator: ${characters.join(',')}`,
+				templateId,
+				folderId,
+			});
+
+			if (entries.length > TEMPLATE_ROW_LIMIT) {
+				embeds.push(
+					new EmbedBuilder()
+						.setTitle('⚠️ Warning')
+						.setDescription(
+							[
+								'Too many accounts to enter into the spreadsheet. The following bank/account combinations were not added:',
+								'',
+								...entries
+									.slice(TEMPLATE_ROW_LIMIT)
+									.map(
+										(entry) =>
+											`- ${renderBankMd(
+												getBank(entry.bankName)
+											)}: IGN ${entry.character}`
+									),
+								'',
+								'You can add these accounts to the spreadsheet manually after inserting enough rows and copying formulas.',
+							].join('\n')
+						)
+				);
+				entries.splice(TEMPLATE_ROW_LIMIT);
+			}
+
+			await updateSheetValues({
+				spreadsheetId: sheetId,
+				requestBody: {
+					data: [
+						{
+							range: 'Bank!A2:A',
+							values: entries.map((entry) => [entry.bankName]),
+						},
+						{
+							range: 'Bank!C2:C',
+							values: entries.map((entry) => [
+								sheetLink(getBank(entry.bankName).sheetId),
+							]),
+						},
+						{
+							range: 'Bank!D2:D',
+							values: entries.map((entry) => {
+								const bank = bankNameToBank.get(entry.bankName);
+								if (bank instanceof YaoBank) {
+									return ['God Banker Yao'];
+								} else if (bank instanceof ResetBank) {
+									return ['Reset'];
+								} else if (bank instanceof MilkFarmBank) {
+									return ['Milkfarm'];
+								}
+
+								return [];
+							}),
+						},
+						{
+							range: 'Bank!F2:F',
+							values: entries.map((entry) => [entry.character]),
+						},
+					],
+					valueInputOption: 'USER_ENTERED',
+				},
+			});
+
+			await interaction.editReply({
+				embeds,
+				content: `Sheet created ${mdLink(
+					'here',
+					sheetLink(sheetId)
+				)}. Please make a copy to your own drive via 'File' -> 'Make a copy'. This sheet will be deleted after some time.`,
+			});
+		}
 	},
 };
