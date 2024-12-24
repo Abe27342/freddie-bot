@@ -21,7 +21,6 @@ export async function querySpreadsheet<TRow extends any[]>(
 		google.options({ auth });
 		isInitialized = true;
 	}
-	// const drive = google.drive({ version: 'v3' });
 	const sheets = google.sheets({ version: 'v4' });
 	const response = await sheets.spreadsheets.values.get({
 		spreadsheetId: sheetId,

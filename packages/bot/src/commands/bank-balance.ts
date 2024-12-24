@@ -34,7 +34,6 @@ class ResetBank {
 	public async fetchBalances(
 		characters: string[]
 	): Promise<Iterable<BankEntry>> {
-		type Row = [string, number, number, number];
 		const data = await querySpreadsheet(this.sheetId, 'Bank!B3:E');
 		const headers = data[0];
 		assert(headers[0] === 'IGN', 'Unexpected IGN column');
@@ -105,6 +104,45 @@ class YaoBank {
 	}
 }
 
+class MilkFarmBank {
+	public constructor(
+		public readonly name: string,
+		public readonly sheetId: string
+	) {}
+
+	public async fetchBalances(
+		characters: string[]
+	): Promise<Iterable<BankEntry>> {
+		const data = await querySpreadsheet(this.sheetId, 'Bank!B16:D');
+		const headers = data[0];
+		assert(headers[0] === 'Runner', 'Unexpected character column');
+		assert(
+			headers[1].toLowerCase().includes('meso'),
+			'Unexpected meso column'
+		);
+		assert(
+			headers[2].toLowerCase().includes('coin'),
+			'Unexpected coin column'
+		);
+		const charactersSet = new Set(
+			characters.map((char) => char.toLowerCase())
+		);
+		const entries = Array.from(
+			data.filter(
+				(value, index) =>
+					index > 0 &&
+					value[0] &&
+					charactersSet.has(value[0].toLowerCase())
+			)
+		).map(([character, mesos, coins]) => {
+			assert(isNumber(mesos));
+			assert(isNumber(coins));
+			return { bankName: this.name, character, mesos, coins };
+		});
+		return entries;
+	}
+}
+
 function renderBankMd(bank: Bank): string {
 	return `[${bank.name}](https://docs.google.com/spreadsheets/d/${bank.sheetId})`;
 }
@@ -116,8 +154,29 @@ function isNumber(val: any): val is number {
 const banks: Bank[] = [
 	new ResetBank('1vH4qcYRvrw39C_todmazgpI7HTn0Epr466s2ORyLC_w'),
 	new YaoBank('Dratini', '1VFR1iya58_697hqY-xQAsOK_FptXD_ZH_0pJDWPbmGY'),
-	new YaoBank('Nightz PB1', '1DIGctiXHyE9_xnz1mxvwo4K11Qj1i9jVWhT5g6lLcTQ'),
+	new YaoBank('Pasta 1/3', '15Ms9iyuaBvFs96gmqV-eL5Dly0S-twTMZMl0ep45XGM'),
+	new YaoBank('Pasta 2', '1DIGctiXHyE9_xnz1mxvwo4K11Qj1i9jVWhT5g6lLcTQ'),
+	new MilkFarmBank(
+		'Milkfarm',
+		'1zO54HSjqBBe-2WrM22LzMcVK_pWOrQHRNXjZV22tMFc'
+	),
+	new YaoBank('Favela', '1Ad_1uYD5fIuqtGvtLcGmDOQGBfzlsNRsGRDcaL2Y3Zo'),
+	new YaoBank('Gurk', '1-ZE8gzWwEYhlui6i3FMfrC0oKlxzhDQgcqTkXNucPAw'),
+	new YaoBank('LCB', '1xpzGIYSeKL9nu7j4g85Fo9qMjmewKc3xR7SRiul39sk'),
+	new YaoBank('Moo', '1AeihIxHgTN6pmfHgPm_UgMhdukwZaKQkrXVq2iHaxj4'),
+	new YaoBank('Nightz', '1sX7vbMR6ldaeOsH3WfVVw9fNHE67IdzWG9_S8z5O3q0'),
+	new YaoBank('Wicked', '150u-MJyEI-eXa8aL0YRumQlMBxMYI7U9YiNnmy6A-ZA'),
 ];
+
+function rightAlign(lines: string[]): string[] {
+	const maxLength = lines.reduce(
+		(currentMax, line) => Math.max(currentMax, line.length),
+		0
+	);
+	return lines.map(
+		(line) => `\`${' '.repeat(maxLength - line.length)}${line}\``
+	);
+}
 
 export const bankbalance: Command = {
 	data: new SlashCommandBuilder()
@@ -262,24 +321,25 @@ export const bankbalance: Command = {
 				},
 				{
 					name: 'Mesos',
-					value: entriesByBankName
-						.map((entry) =>
+					value: rightAlign(
+						entriesByBankName.map((entry) =>
 							entry.mesos.toLocaleString(undefined, {
 								maximumFractionDigits: 0,
 							})
 						)
-						.join('\n'),
+					).join('\n'),
 					inline: true,
 				},
 				{
 					name: 'Coins',
-					value: entriesByBankName
-						.map((entry) =>
+					value: rightAlign(
+						entriesByBankName.map((entry) =>
 							entry.coins.toLocaleString(undefined, {
 								maximumFractionDigits: 2,
+								minimumFractionDigits: 2,
 							})
 						)
-						.join('\n'),
+					).join('\n'),
 					inline: true,
 				}
 				// 4th embed never gets inlined, even if the space is available.
