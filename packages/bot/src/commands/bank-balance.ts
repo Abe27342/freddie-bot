@@ -73,10 +73,19 @@ class ResetBank {
 }
 
 class YaoBank {
-	public constructor(
-		public readonly name: string,
-		public readonly sheetId: string
-	) {}
+	public readonly name: string;
+	public readonly sheetId: string;
+	private readonly strictHeaders: boolean;
+
+	public constructor(params: {
+		readonly name: string;
+		readonly sheetId: string;
+		readonly strictHeaders?: boolean;
+	}) {
+		this.name = params.name;
+		this.sheetId = params.sheetId;
+		this.strictHeaders = params.strictHeaders ?? true;
+	}
 
 	public async fetchBalances(
 		characters: string[]
@@ -84,15 +93,17 @@ class YaoBank {
 		type Row = [string, number, number, number];
 		const data = await querySpreadsheet(this.sheetId, 'Quick Balance!A1:C');
 		const headers = data[0];
-		assert(headers[0] === 'Runners', 'Unexpected character column');
-		assert(
-			headers[1].toLowerCase().includes('meso'),
-			'Unexpected meso column'
-		);
-		assert(
-			headers[2].toLowerCase().includes('coin'),
-			'Unexpected coin column'
-		);
+		if (this.strictHeaders) {
+			assert(headers[0] === 'Runners', 'Unexpected character column');
+			assert(
+				headers[1].toLowerCase().includes('meso'),
+				'Unexpected meso column'
+			);
+			assert(
+				headers[2].toLowerCase().includes('coin'),
+				'Unexpected coin column'
+			);
+		}
 		const charactersSet = new Set(
 			characters.map((char) => char.toLowerCase())
 		);
@@ -165,20 +176,51 @@ function isNumber(val: any): val is number {
 
 const banks: Bank[] = [
 	new ResetBank('1vH4qcYRvrw39C_todmazgpI7HTn0Epr466s2ORyLC_w'),
-	new YaoBank('Dratini', '1VFR1iya58_697hqY-xQAsOK_FptXD_ZH_0pJDWPbmGY'),
-	new YaoBank('Pasta 1/3', '15Ms9iyuaBvFs96gmqV-eL5Dly0S-twTMZMl0ep45XGM'),
-	new YaoBank('Pasta 2', '1DIGctiXHyE9_xnz1mxvwo4K11Qj1i9jVWhT5g6lLcTQ'),
+	new YaoBank({
+		name: 'Dratini',
+		sheetId: '1VFR1iya58_697hqY-xQAsOK_FptXD_ZH_0pJDWPbmGY',
+	}),
+	new YaoBank({
+		name: 'Pasta 1/3',
+		sheetId: '15Ms9iyuaBvFs96gmqV-eL5Dly0S-twTMZMl0ep45XGM',
+	}),
+	new YaoBank({
+		name: 'Pasta 2',
+		sheetId: '1DIGctiXHyE9_xnz1mxvwo4K11Qj1i9jVWhT5g6lLcTQ',
+	}),
 	new MilkFarmBank(
 		'Milkfarm',
 		'1zO54HSjqBBe-2WrM22LzMcVK_pWOrQHRNXjZV22tMFc'
 	),
-	new YaoBank('Favela', '1Ad_1uYD5fIuqtGvtLcGmDOQGBfzlsNRsGRDcaL2Y3Zo'),
-	new YaoBank('Gurk', '1-ZE8gzWwEYhlui6i3FMfrC0oKlxzhDQgcqTkXNucPAw'),
-	new YaoBank('LCB', '1xpzGIYSeKL9nu7j4g85Fo9qMjmewKc3xR7SRiul39sk'),
-	new YaoBank('Moo', '1AeihIxHgTN6pmfHgPm_UgMhdukwZaKQkrXVq2iHaxj4'),
-	new YaoBank('Nightz', '1sX7vbMR6ldaeOsH3WfVVw9fNHE67IdzWG9_S8z5O3q0'),
-	new YaoBank('Wicked', '150u-MJyEI-eXa8aL0YRumQlMBxMYI7U9YiNnmy6A-ZA'),
-	new YaoBank('Fam', '1oQnh7cf2wUT5PUBrtfZHo3rPyeYB0et3SbE27Lalywg'),
+	new YaoBank({
+		name: 'Favela',
+		sheetId: '1Ad_1uYD5fIuqtGvtLcGmDOQGBfzlsNRsGRDcaL2Y3Zo',
+	}),
+	new YaoBank({
+		name: 'Gurk',
+		sheetId: '1-ZE8gzWwEYhlui6i3FMfrC0oKlxzhDQgcqTkXNucPAw',
+	}),
+	new YaoBank({
+		name: 'LCB',
+		sheetId: '1xpzGIYSeKL9nu7j4g85Fo9qMjmewKc3xR7SRiul39sk',
+	}),
+	new YaoBank({
+		name: 'Moo',
+		sheetId: '1AeihIxHgTN6pmfHgPm_UgMhdukwZaKQkrXVq2iHaxj4',
+	}),
+	new YaoBank({
+		name: 'Nightz',
+		sheetId: '1sX7vbMR6ldaeOsH3WfVVw9fNHE67IdzWG9_S8z5O3q0',
+	}),
+	new YaoBank({
+		name: 'Wicked',
+		sheetId: '150u-MJyEI-eXa8aL0YRumQlMBxMYI7U9YiNnmy6A-ZA',
+	}),
+	new YaoBank({
+		name: 'Fam',
+		sheetId: '1oQnh7cf2wUT5PUBrtfZHo3rPyeYB0et3SbE27Lalywg',
+		strictHeaders: false,
+	}),
 ];
 
 function rightAlign(lines: string[]): string[] {
