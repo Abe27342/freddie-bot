@@ -178,6 +178,7 @@ const banks: Bank[] = [
 	new YaoBank('Moo', '1AeihIxHgTN6pmfHgPm_UgMhdukwZaKQkrXVq2iHaxj4'),
 	new YaoBank('Nightz', '1sX7vbMR6ldaeOsH3WfVVw9fNHE67IdzWG9_S8z5O3q0'),
 	new YaoBank('Wicked', '150u-MJyEI-eXa8aL0YRumQlMBxMYI7U9YiNnmy6A-ZA'),
+	new YaoBank('Fam', '1oQnh7cf2wUT5PUBrtfZHo3rPyeYB0et3SbE27Lalywg'),
 ];
 
 function rightAlign(lines: string[]): string[] {
