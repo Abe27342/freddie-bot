@@ -378,17 +378,17 @@ export const bankbalance: Command = {
 
 		if (entries.length === 0) {
 			if (interaction.options.getSubcommand() === 'get') {
-				await interaction.reply({
+				await interaction.editReply({
 					content:
 						'None of those characters were found in a supported bank! Try "/bankbalance help"?',
 					embeds,
 				});
 				return;
 			} else {
-				await interaction.reply({
+				await interaction.editReply({
 					content: `None of those characters were found in a supported bank. You can make a copy of the template ${mdLink(
 						'here',
-						''
+						'https://docs.google.com/spreadsheets/d/179-BbVGXY4YUPBrt_WW1bHteXwwSoHAcAIrEsTKDujo'
 					)} if you like..`,
 				});
 			}
