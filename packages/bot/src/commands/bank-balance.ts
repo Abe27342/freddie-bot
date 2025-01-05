@@ -221,6 +221,10 @@ const banks: Bank[] = [
 		sheetId: '1oQnh7cf2wUT5PUBrtfZHo3rPyeYB0et3SbE27Lalywg',
 		strictHeaders: false,
 	}),
+	new YaoBank({
+		name: 'Salami',
+		sheetId: '14lT5foc-W-XJ9MNQVpQv-7iVVf1oizGSTB134suT2Co',
+	}),
 ];
 
 function rightAlign(lines: string[]): string[] {
