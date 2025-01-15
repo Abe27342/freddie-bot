@@ -202,7 +202,7 @@ const banks: Bank[] = [
 	}),
 	new YaoBank({
 		name: 'LCB',
-		sheetId: '1xpzGIYSeKL9nu7j4g85Fo9qMjmewKc3xR7SRiul39sk',
+		sheetId: '1MLyPwZBkZOIWPrtauCwZ5erYHFo2QOEaoMxo0CgmJXI',
 	}),
 	new YaoBank({
 		name: 'Moo',
