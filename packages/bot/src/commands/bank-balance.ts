@@ -252,9 +252,6 @@ async function refreshBankList(): Promise<void> {
 		});
 }
 
-setInterval(() => refreshBankList().catch(console.error), 15 * 60 * 1000);
-refreshBankList().catch(console.error);
-
 export const bankbalance: Command = {
 	data: new SlashCommandBuilder()
 		.setName('bankbalance')
@@ -556,4 +553,8 @@ export const bankbalance: Command = {
 			});
 		}
 	},
+	async initialize() {
+		setInterval(() => refreshBankList().catch(console.error), 15 * 60 * 1000);
+		return refreshBankList().catch(console.error);
+	}
 };
