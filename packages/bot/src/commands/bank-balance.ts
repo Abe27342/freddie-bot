@@ -13,6 +13,9 @@ import {
 import { assert } from '../utils/index.js';
 
 const CHARACTERS_ARG = 'characters';
+// Note: there's a lot of fetch logic which is prone to race conditions in this file, but at worst this should lead to some stale data responses,
+// so it seems tolerable.
+const FORCE_REFRESH_ARG = 'force_refresh';
 
 // Maximum number of rows that the template supports.
 // We could programatically generate more and copy the right formulas, but this is a pretty niche edge case.
@@ -32,17 +35,52 @@ interface BankEntry {
 interface Bank {
 	readonly name: string;
 	readonly sheetId: string;
-	fetchBalances(characters: string[]): Promise<Iterable<BankEntry>>;
+	getBalances(characters: string[], forceRefresh?: boolean): Promise<Iterable<BankEntry>>;
 }
 
-class ResetBank {
-	public readonly name = 'ResetPB';
-	constructor(public readonly sheetId: string) {}
+abstract class CachingBank implements Bank {
+	private mostRecentData: any[][] | null = null;
 
-	public async fetchBalances(
-		characters: string[]
-	): Promise<Iterable<BankEntry>> {
-		const data = await querySpreadsheet(this.sheetId, 'Bank!B3:E');
+	public readonly name: string;
+	public readonly sheetId: string;
+	private readonly dataRange: string;
+	constructor(options: { sheetId: string; dataRange: string; name: string; refreshInterval?: number }) {
+		this.sheetId = options.sheetId;
+		this.name = options.name;
+		this.dataRange = options.dataRange;
+		const interval = options.refreshInterval ?? 15 * 60 * 1000;
+		const refreshDataFAF = () => this.fetchData().catch(error => console.log(`Error refreshing bank data for ${this.name}: ${error}`));
+		setInterval(refreshDataFAF, interval);
+		refreshDataFAF();
+	}
+
+	private async fetchData(): Promise<any[][]> {
+		this.mostRecentData = await querySpreadsheet(this.sheetId, this.dataRange);
+		return this.mostRecentData;
+	}
+
+	public async getBalances(characters: string[], forceRefresh = false) {
+		let data = this.mostRecentData;
+		if (forceRefresh || data === null) {
+			data = await this.fetchData();
+		}
+
+		return this.getBalancesFromData(characters, data)
+	}
+
+	protected abstract getBalancesFromData(characters: string[], data: any[][]): Iterable<BankEntry>;
+}
+
+class ResetBank extends CachingBank {
+	public readonly name = 'ResetPB';
+	constructor(sheetId: string) {
+		super({ sheetId, name: 'ResetPB', dataRange: 'Bank!B3:E' });
+	}
+
+	public getBalancesFromData(
+		characters: string[],
+		data: any[][]
+	): Iterable<BankEntry> {
 		const headers = data[0];
 		assert(headers[0] === 'IGN', 'Unexpected IGN column');
 		assert(
@@ -72,9 +110,7 @@ class ResetBank {
 	}
 }
 
-class YaoBank {
-	public readonly name: string;
-	public readonly sheetId: string;
+class YaoBank extends CachingBank {
 	private readonly strictHeaders: boolean;
 
 	public constructor(params: {
@@ -82,16 +118,15 @@ class YaoBank {
 		readonly sheetId: string;
 		readonly strictHeaders?: boolean;
 	}) {
-		this.name = params.name;
-		this.sheetId = params.sheetId;
+		super({ sheetId: params.sheetId, name: params.name, dataRange: 'Quick Balance!A1:C' });
 		this.strictHeaders = params.strictHeaders ?? true;
 	}
 
-	public async fetchBalances(
-		characters: string[]
-	): Promise<Iterable<BankEntry>> {
+	public getBalancesFromData(
+		characters: string[],
+		data: any[][]
+	): Iterable<BankEntry> {
 		type Row = [string, number, number, number];
-		const data = await querySpreadsheet(this.sheetId, 'Quick Balance!A1:C');
 		const headers = data[0];
 		if (this.strictHeaders) {
 			assert(headers[0] === 'Runners', 'Unexpected character column');
@@ -123,16 +158,18 @@ class YaoBank {
 	}
 }
 
-class MilkFarmBank {
+class MilkFarmBank extends CachingBank {
 	public constructor(
 		public readonly name: string,
 		public readonly sheetId: string
-	) {}
+	) {
+		super({ sheetId, name, dataRange: 'Bank!B16:D' });
+	}
 
-	public async fetchBalances(
-		characters: string[]
-	): Promise<Iterable<BankEntry>> {
-		const data = await querySpreadsheet(this.sheetId, 'Bank!B16:D');
+	public getBalancesFromData(
+		characters: string[],
+		data: any[][]
+	): Iterable<BankEntry> {
 		const headers = data[0];
 		assert(headers[0] === 'Runner', 'Unexpected character column');
 		assert(
@@ -174,59 +211,6 @@ function isNumber(val: any): val is number {
 	return typeof val === 'number' && !Number.isNaN(val);
 }
 
-const banks: Bank[] = [
-	new ResetBank('1vH4qcYRvrw39C_todmazgpI7HTn0Epr466s2ORyLC_w'),
-	new YaoBank({
-		name: 'Dratini',
-		sheetId: '1VFR1iya58_697hqY-xQAsOK_FptXD_ZH_0pJDWPbmGY',
-	}),
-	new YaoBank({
-		name: 'Pasta 1/3',
-		sheetId: '15Ms9iyuaBvFs96gmqV-eL5Dly0S-twTMZMl0ep45XGM',
-	}),
-	new YaoBank({
-		name: 'Pasta 2',
-		sheetId: '1DIGctiXHyE9_xnz1mxvwo4K11Qj1i9jVWhT5g6lLcTQ',
-	}),
-	new MilkFarmBank(
-		'Milkfarm',
-		'1zO54HSjqBBe-2WrM22LzMcVK_pWOrQHRNXjZV22tMFc'
-	),
-	new YaoBank({
-		name: 'Favela',
-		sheetId: '1Ad_1uYD5fIuqtGvtLcGmDOQGBfzlsNRsGRDcaL2Y3Zo',
-	}),
-	new YaoBank({
-		name: 'Gurk',
-		sheetId: '1-ZE8gzWwEYhlui6i3FMfrC0oKlxzhDQgcqTkXNucPAw',
-	}),
-	new YaoBank({
-		name: 'LCB',
-		sheetId: '1MLyPwZBkZOIWPrtauCwZ5erYHFo2QOEaoMxo0CgmJXI',
-	}),
-	new YaoBank({
-		name: 'Moo',
-		sheetId: '1AeihIxHgTN6pmfHgPm_UgMhdukwZaKQkrXVq2iHaxj4',
-	}),
-	new YaoBank({
-		name: 'Nightz',
-		sheetId: '1sX7vbMR6ldaeOsH3WfVVw9fNHE67IdzWG9_S8z5O3q0',
-	}),
-	new YaoBank({
-		name: 'Wicked',
-		sheetId: '150u-MJyEI-eXa8aL0YRumQlMBxMYI7U9YiNnmy6A-ZA',
-	}),
-	new YaoBank({
-		name: 'Fam',
-		sheetId: '1oQnh7cf2wUT5PUBrtfZHo3rPyeYB0et3SbE27Lalywg',
-		strictHeaders: false,
-	}),
-	new YaoBank({
-		name: 'Salami',
-		sheetId: '14lT5foc-W-XJ9MNQVpQv-7iVVf1oizGSTB134suT2Co',
-	}),
-];
-
 function rightAlign(lines: string[]): string[] {
 	const maxLength = lines.reduce(
 		(currentMax, line) => Math.max(currentMax, line.length),
@@ -240,6 +224,36 @@ function rightAlign(lines: string[]): string[] {
 function mdLink(text: string, url: string): string {
 	return `[${text}](${url})`;
 }
+
+let banks: Bank[] | null = null;
+
+async function refreshBankList(): Promise<void> {
+	const banklistSheetId = '1ZSf6l4Ru6ipI3VOcelnjweRimUBwMZyszvesVi55hnc';
+	const data = await querySpreadsheet(banklistSheetId, 'A1:C');
+	const headers = data[0];
+	assert(headers[0] === 'Name', 'Unexpected name column');
+	assert(headers[1] === 'Sheet ID', 'Unexpected sheet ID column');
+	assert(headers[2] === 'Type', 'Unexpected type column');
+	banks = data
+		.slice(1)
+		.map(([name, sheetId, type]) => {
+			switch (type) {
+				case 'Reset':
+					return new ResetBank(sheetId);
+				case 'Yao':
+					return new YaoBank({ name, sheetId });
+				case 'YaoLax':
+					return new YaoBank({ name, sheetId, strictHeaders: false });
+				case 'Milkfarm':
+					return new MilkFarmBank(name, sheetId);
+				default:
+					throw new Error(`Unknown bank type: ${type}`);
+			}
+		});
+}
+
+setInterval(() => refreshBankList().catch(console.error), 15 * 60 * 1000);
+refreshBankList().catch(console.error);
 
 export const bankbalance: Command = {
 	data: new SlashCommandBuilder()
@@ -256,6 +270,7 @@ export const bankbalance: Command = {
 						)
 						.setRequired(true)
 				)
+				.addBooleanOption((builder) => builder.setName(FORCE_REFRESH_ARG).setDescription('Force-refresh data. Default is false, and data may be stale by up to 15 minutes.'))
 				.setDescription(
 					'Get a bank balance summary for a list of characters.'
 				)
@@ -271,6 +286,7 @@ export const bankbalance: Command = {
 						)
 						.setRequired(true)
 				)
+				.addBooleanOption((builder) => builder.setName(FORCE_REFRESH_ARG).setDescription('Force-refresh data. Default is false, and data may be stale by up to 15 minutes.'))
 				.setDescription(
 					'Creates a google sheet containing a bank balance summary for a list of characters.'
 				)
@@ -283,6 +299,12 @@ export const bankbalance: Command = {
 				)
 		),
 	async execute(interaction: ChatInputCommandInteraction<CacheType>) {
+		if (banks === null) {
+			await interaction.deferReply();
+			await refreshBankList();
+		}
+		assert(banks !== null);
+
 		if (interaction.options.getSubcommand() === 'help') {
 			await interaction.reply({
 				content: [
@@ -307,7 +329,10 @@ export const bankbalance: Command = {
 			return;
 		}
 
-		await interaction.deferReply();
+		if (!interaction.deferred) {
+			await interaction.deferReply();
+		}
+
 		const bankApiResponses = await Promise.all(
 			banks.map<
 				Promise<
@@ -316,7 +341,7 @@ export const bankbalance: Command = {
 				>
 			>((bank) =>
 				bank
-					.fetchBalances(characters)
+					.getBalances(characters, interaction.options.getBoolean(FORCE_REFRESH_ARG) ?? false)
 					.then((result) => ({ type: 'success', result } as const))
 					.catch((err) => {
 						console.log(err);
