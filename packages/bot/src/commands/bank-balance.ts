@@ -276,14 +276,18 @@ async function refreshBankList(): Promise<void> {
 		switch (type) {
 			case 'Reset':
 				newBanks.add(new ResetBank(sheetId));
+				break;
 			case 'Yao':
 				newBanks.add(new YaoBank({ name, sheetId }));
+				break;
 			case 'YaoLax':
 				newBanks.add(
 					new YaoBank({ name, sheetId, strictHeaders: false })
 				);
+				break;
 			case 'Milkfarm':
 				newBanks.add(new MilkFarmBank(name, sheetId));
+				break;
 			default:
 				throw new Error(`Unknown bank type: ${type}`);
 		}
