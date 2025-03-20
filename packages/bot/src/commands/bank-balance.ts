@@ -298,9 +298,6 @@ async function refreshBankList(): Promise<void> {
 	banks = [...newBanks];
 }
 
-setInterval(() => refreshBankList().catch(console.error), 60 * 60 * 1000);
-refreshBankList().catch(console.error);
-
 export const bankbalance: Command = {
 	data: new SlashCommandBuilder()
 		.setName('bankbalance')
@@ -617,5 +614,12 @@ export const bankbalance: Command = {
 				)}. Please make a copy to your own drive via 'File' -> 'Make a copy'. This sheet will be deleted after some time.`,
 			});
 		}
+	},
+	async initialize() {
+		setInterval(
+			() => refreshBankList().catch(console.error),
+			60 * 60 * 1000
+		);
+		return refreshBankList().catch(console.error);
 	},
 };
