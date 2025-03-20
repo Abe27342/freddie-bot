@@ -32,10 +32,13 @@ interface BankEntry {
 	coins: number;
 }
 
-interface Bank {
+interface Bank extends Disposable {
 	readonly name: string;
 	readonly sheetId: string;
-	getBalances(characters: string[], forceRefresh?: boolean): Promise<Iterable<BankEntry>>;
+	getBalances(
+		characters: string[],
+		forceRefresh?: boolean
+	): Promise<Iterable<BankEntry>>;
 }
 
 abstract class CachingBank implements Bank {
@@ -44,18 +47,32 @@ abstract class CachingBank implements Bank {
 	public readonly name: string;
 	public readonly sheetId: string;
 	private readonly dataRange: string;
-	constructor(options: { sheetId: string; dataRange: string; name: string; refreshInterval?: number }) {
+	private interval: NodeJS.Timer;
+	constructor(options: {
+		sheetId: string;
+		dataRange: string;
+		name: string;
+		refreshInterval?: number;
+	}) {
 		this.sheetId = options.sheetId;
 		this.name = options.name;
 		this.dataRange = options.dataRange;
 		const interval = options.refreshInterval ?? 15 * 60 * 1000;
-		const refreshDataFAF = () => this.fetchData().catch(error => console.log(`Error refreshing bank data for ${this.name}: ${error}`));
-		setInterval(refreshDataFAF, interval);
+		const refreshDataFAF = () =>
+			this.fetchData().catch((error) =>
+				console.log(
+					`Error refreshing bank data for ${this.name}: ${error}`
+				)
+			);
+		this.interval = setInterval(refreshDataFAF, interval);
 		refreshDataFAF();
 	}
 
 	private async fetchData(): Promise<any[][]> {
-		this.mostRecentData = await querySpreadsheet(this.sheetId, this.dataRange);
+		this.mostRecentData = await querySpreadsheet(
+			this.sheetId,
+			this.dataRange
+		);
 		return this.mostRecentData;
 	}
 
@@ -65,10 +82,17 @@ abstract class CachingBank implements Bank {
 			data = await this.fetchData();
 		}
 
-		return this.getBalancesFromData(characters, data)
+		return this.getBalancesFromData(characters, data);
 	}
 
-	protected abstract getBalancesFromData(characters: string[], data: any[][]): Iterable<BankEntry>;
+	protected abstract getBalancesFromData(
+		characters: string[],
+		data: any[][]
+	): Iterable<BankEntry>;
+
+	public [Symbol.dispose]() {
+		clearInterval(this.interval);
+	}
 }
 
 class ResetBank extends CachingBank {
@@ -118,7 +142,11 @@ class YaoBank extends CachingBank {
 		readonly sheetId: string;
 		readonly strictHeaders?: boolean;
 	}) {
-		super({ sheetId: params.sheetId, name: params.name, dataRange: 'Quick Balance!A1:C' });
+		super({
+			sheetId: params.sheetId,
+			name: params.name,
+			dataRange: 'Quick Balance!A1:C',
+		});
 		this.strictHeaders = params.strictHeaders ?? true;
 	}
 
@@ -234,25 +262,43 @@ async function refreshBankList(): Promise<void> {
 	assert(headers[0] === 'Name', 'Unexpected name column');
 	assert(headers[1] === 'Sheet ID', 'Unexpected sheet ID column');
 	assert(headers[2] === 'Type', 'Unexpected type column');
-	banks = data
-		.slice(1)
-		.map(([name, sheetId, type]) => {
-			switch (type) {
-				case 'Reset':
-					return new ResetBank(sheetId);
-				case 'Yao':
-					return new YaoBank({ name, sheetId });
-				case 'YaoLax':
-					return new YaoBank({ name, sheetId, strictHeaders: false });
-				case 'Milkfarm':
-					return new MilkFarmBank(name, sheetId);
-				default:
-					throw new Error(`Unknown bank type: ${type}`);
-			}
-		});
+	const newBanks = new Set<Bank>();
+	for (const [name, sheetId, type] of data.slice(1)) {
+		const oldMatchingBank = banks.find(
+			(bank) => bank.name === name && bank.sheetId === sheetId
+		);
+
+		if (oldMatchingBank !== undefined) {
+			newBanks.add(oldMatchingBank);
+			continue;
+		}
+
+		switch (type) {
+			case 'Reset':
+				newBanks.add(new ResetBank(sheetId));
+			case 'Yao':
+				newBanks.add(new YaoBank({ name, sheetId }));
+			case 'YaoLax':
+				newBanks.add(
+					new YaoBank({ name, sheetId, strictHeaders: false })
+				);
+			case 'Milkfarm':
+				newBanks.add(new MilkFarmBank(name, sheetId));
+			default:
+				throw new Error(`Unknown bank type: ${type}`);
+		}
+	}
+
+	for (const bank of banks) {
+		if (!newBanks.has(bank)) {
+			bank[Symbol.dispose]();
+		}
+	}
+
+	banks = [...newBanks];
 }
 
-setInterval(() => refreshBankList().catch(console.error), 15 * 60 * 1000);
+setInterval(() => refreshBankList().catch(console.error), 60 * 60 * 1000);
 refreshBankList().catch(console.error);
 
 export const bankbalance: Command = {
@@ -270,7 +316,13 @@ export const bankbalance: Command = {
 						)
 						.setRequired(true)
 				)
-				.addBooleanOption((builder) => builder.setName(FORCE_REFRESH_ARG).setDescription('Force-refresh data. Default is false, and data may be stale by up to 15 minutes.'))
+				.addBooleanOption((builder) =>
+					builder
+						.setName(FORCE_REFRESH_ARG)
+						.setDescription(
+							'Force-refresh data. Default is false, and data may be stale by up to 15 minutes.'
+						)
+				)
 				.setDescription(
 					'Get a bank balance summary for a list of characters.'
 				)
@@ -286,7 +338,13 @@ export const bankbalance: Command = {
 						)
 						.setRequired(true)
 				)
-				.addBooleanOption((builder) => builder.setName(FORCE_REFRESH_ARG).setDescription('Force-refresh data. Default is false, and data may be stale by up to 15 minutes.'))
+				.addBooleanOption((builder) =>
+					builder
+						.setName(FORCE_REFRESH_ARG)
+						.setDescription(
+							'Force-refresh data. Default is false, and data may be stale by up to 15 minutes.'
+						)
+				)
 				.setDescription(
 					'Creates a google sheet containing a bank balance summary for a list of characters.'
 				)
@@ -341,7 +399,11 @@ export const bankbalance: Command = {
 				>
 			>((bank) =>
 				bank
-					.getBalances(characters, interaction.options.getBoolean(FORCE_REFRESH_ARG) ?? false)
+					.getBalances(
+						characters,
+						interaction.options.getBoolean(FORCE_REFRESH_ARG) ??
+							false
+					)
 					.then((result) => ({ type: 'success', result } as const))
 					.catch((err) => {
 						console.log(err);
