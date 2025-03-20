@@ -264,7 +264,7 @@ async function refreshBankList(): Promise<void> {
 	assert(headers[2] === 'Type', 'Unexpected type column');
 	const newBanks = new Set<Bank>();
 	for (const [name, sheetId, type] of data.slice(1)) {
-		const oldMatchingBank = banks.find(
+		const oldMatchingBank = (banks ?? []).find(
 			(bank) => bank.name === name && bank.sheetId === sheetId
 		);
 
@@ -289,7 +289,7 @@ async function refreshBankList(): Promise<void> {
 		}
 	}
 
-	for (const bank of banks) {
+	for (const bank of banks ?? []) {
 		if (!newBanks.has(bank)) {
 			bank[Symbol.dispose]();
 		}
