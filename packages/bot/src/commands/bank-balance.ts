@@ -157,14 +157,17 @@ class YaoBank extends CachingBank {
 		type Row = [string, number, number, number];
 		const headers = data[0];
 		if (this.strictHeaders) {
-			assert(headers[0] === 'Runners', 'Unexpected character column');
+			assert(
+				headers[0] === 'Runners',
+				`Unexpected character column: ${this.name}`
+			);
 			assert(
 				headers[1].toLowerCase().includes('meso'),
-				'Unexpected meso column'
+				`Unexpected meso column: ${this.name}`
 			);
 			assert(
 				headers[2].toLowerCase().includes('coin'),
-				'Unexpected coin column'
+				`Unexpected coin column: ${this.name}`
 			);
 		}
 		const charactersSet = new Set(
@@ -368,9 +371,12 @@ export const bankbalance: Command = {
 			await interaction.reply({
 				content: [
 					'This command displays information about all recorded balances for a list of characters.',
-					'The following banking systems are supported:',
+					'Banking systems on the following sheet are supported:',
 					'',
-					...banks.map((bank) => `- ${renderBankMd(bank)}`),
+					`- ${mdLink(
+						'Supported Banks',
+						'https://docs.google.com/spreadsheets/d/1ZSf6l4Ru6ipI3VOcelnjweRimUBwMZyszvesVi55hnc'
+					)}`,
 				].join('\n'),
 				ephemeral: true,
 			});
