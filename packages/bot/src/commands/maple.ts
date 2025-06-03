@@ -94,7 +94,7 @@ async function renderCharacter(
 	const canvas = createCanvas(600, 400);
 	const ctx = canvas.getContext('2d');
 	ctx.fillStyle = '#0000ff';
-	const asset = assets[Math.ceil(Math.random())];
+	const asset = assets[Math.random() < 0.001 ? 0:1];
 	const background = await loadImage(path.join(rootDir, asset.name));
 	ctx.drawImage(
 		background,
