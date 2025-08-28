@@ -188,11 +188,15 @@ export class MockDiscord {
 		const interaction = Reflect.construct(ChatInputCommandInteraction, [
 			this.client,
 			{
-				data: { ...command, type: ApplicationCommandType.ChatInput },
+				data: {
+					...command,
+					type: ApplicationCommandType.ChatInput,
+				},
 				id: BigInt(1),
 				user: this.guildMember,
 				type: InteractionType.ApplicationCommand,
 				channel,
+				entitlements: [],
 			},
 		]);
 
