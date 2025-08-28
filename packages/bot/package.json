@@ -24,7 +24,7 @@
 		"chart.js": "^4.4.1",
 		"chartjs-adapter-date-std": "^0.1.13",
 		"debug": "^4.3.4",
-		"discord.js": "^14.8.0",
+		"discord.js": "^14.21.0",
 		"dotenv": "^16.0.2",
 		"google-auth-library": "^9.15.0",
 		"googleapis": "^144.0.0",
