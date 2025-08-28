@@ -2,6 +2,7 @@ import { expect } from 'vitest';
 import {
 	ChatInputCommandInteraction,
 	SlashCommandBuilder,
+	SlashCommandOptionsOnlyBuilder,
 	SlashCommandSubcommandsOnlyBuilder,
 } from 'discord.js';
 import { FreddieBotClient } from '../types';
@@ -49,7 +50,10 @@ function castToType(value: string, typeId: number) {
 
 function getParsedCommand(
 	stringCommand: string,
-	commandData: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder
+	commandData:
+		| SlashCommandBuilder
+		| SlashCommandSubcommandsOnlyBuilder
+		| SlashCommandOptionsOnlyBuilder
 ) {
 	const options = getNestedOptions(commandData.options);
 	const optionsIndentifiers = options.map((option: any) => `${option.name}:`);
