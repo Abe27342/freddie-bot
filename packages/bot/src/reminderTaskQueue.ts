@@ -6,7 +6,7 @@ import { Client } from 'discord.js';
 import { Random, MersenneTwister19937 } from 'random-js';
 import { Reminder, DbId } from './types';
 import { FreddieBotDb } from './db';
-import { isNotPartialChannel } from './utils';
+import { isNotPartialChannel } from './utils/index.js';
 
 const random = new Random(MersenneTwister19937.autoSeed());
 
