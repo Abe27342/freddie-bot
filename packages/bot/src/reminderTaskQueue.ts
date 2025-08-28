@@ -6,6 +6,7 @@ import { Client } from 'discord.js';
 import { Random, MersenneTwister19937 } from 'random-js';
 import { Reminder, DbId } from './types';
 import { FreddieBotDb } from './db';
+import { isNotPartialChannel } from './utils';
 
 const random = new Random(MersenneTwister19937.autoSeed());
 
@@ -59,7 +60,7 @@ export function createReminderQueue(
 	async function sendReminder(reminder: Reminder): Promise<void> {
 		try {
 			const channel = await client.channels.fetch(reminder.channelId);
-			if (!channel.isTextBased()) {
+			if (!channel.isTextBased() || !isNotPartialChannel(channel)) {
 				return;
 			}
 

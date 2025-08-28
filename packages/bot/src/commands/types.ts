@@ -3,11 +3,15 @@ import type {
 	SlashCommandBuilder,
 	SlashCommandSubcommandsOnlyBuilder,
 	ChatInputCommandInteraction,
+	SlashCommandOptionsOnlyBuilder,
 } from 'discord.js';
 import { FreddieBotClient } from '../types';
 
 export interface Command {
-	data: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder;
+	data:
+		| SlashCommandBuilder
+		| SlashCommandSubcommandsOnlyBuilder
+		| SlashCommandOptionsOnlyBuilder;
 	testServerOnly?: boolean; // defaults to false
 	adminOnly?: boolean; // defaults to false
 	execute(interaction: ChatInputCommandInteraction): Promise<void>;

@@ -6,7 +6,7 @@ import {
 } from 'discord.js';
 import { Command } from './types';
 import { FreddieBotClient } from '../types';
-import { assert } from '../utils/index.js';
+import { assert, isNotPartialChannel } from '../utils/index.js';
 
 // Could be more restrictive here if we wanted.
 type Boss = string;
@@ -214,7 +214,8 @@ function getTimerAggregatorForChannel(
 					instancer.delete(channelId);
 				}
 				assert(
-					discordChannel.isTextBased(),
+					discordChannel.isTextBased() &&
+						isNotPartialChannel(discordChannel),
 					'Attempted to send bosstimer reminder to non-text-based channel.'
 				);
 				const respawnTimeMs = bosses.get(name);
