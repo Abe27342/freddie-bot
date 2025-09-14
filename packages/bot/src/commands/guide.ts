@@ -9,6 +9,7 @@ import { cwkpq } from './cwkpq.js';
 import { PLAYERS_ARG } from './shared-args.js';
 
 const staticAssetNames: Record<string, string> = {
+	apqbonus: 'https://i.imgur.com/g7frMgb.png',
 	apq: 'https://i.imgur.com/25NBdNv.gif',
 	opq: 'https://i.imgur.com/25NBdNv.gif',
 	hpq: 'https://i.imgur.com/XntImh2.png',
@@ -22,6 +23,9 @@ export const guide: Command = {
 		.setName('guide')
 		.setDescription(
 			'Get infographics for Maplestory PQs, prequests, and maps.'
+		)
+		.addSubcommand((builder) =>
+			builder.setName('apqbonus').setDescription('APQ bonus stage')
 		)
 		.addSubcommand((builder) =>
 			builder.setName('apq').setDescription('Amoria Party Quest')
@@ -63,6 +67,7 @@ export const guide: Command = {
 	async execute(interaction: ChatInputCommandInteraction<CacheType>) {
 		const subcommand = interaction.options.getSubcommand();
 		switch (subcommand) {
+			case 'apqbonus':
 			case 'apq':
 			case 'hh':
 			case 'hpq':
