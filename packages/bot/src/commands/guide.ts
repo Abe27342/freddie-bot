@@ -24,7 +24,9 @@ export const guide: Command = {
 		.setDescription(
 			'Get infographics for Maplestory PQs, prequests, and maps.'
 		)
-		.addSubcommand((builder) => builder.)
+		.addSubcommand((builder) =>
+			builder.setName('apqbonus').setDescription('APQ bonus stage')
+		)
 		.addSubcommand((builder) =>
 			builder.setName('apq').setDescription('Amoria Party Quest')
 		)
