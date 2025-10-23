@@ -2,13 +2,11 @@
 import registerDebug from 'debug';
 import { Client, Collection, GatewayIntentBits, Interaction } from 'discord.js';
 import * as commandsModule from './commands/index.js';
-// import * as interactionsModule from './interactions/index.js';
+import * as interactionsImports from './interactions/index.js';
 import type { Command } from './commands/types';
 import type { InteractionHandler } from './interactions/types';
 import { AsyncWorkTypes, ClientOptions, FreddieBotClient } from './types.js';
 import { createReminderQueue } from './reminderTaskQueue.js';
-
-const interactionsModule: { [key: string]: InteractionHandler } = {};
 
 const debugTaskqueue = registerDebug('freddie-bot:taskqueue');
 
@@ -22,7 +20,7 @@ function getCommandsCollection(): Collection<string, Command> {
 
 function getInteractionsCollection(): Collection<string, InteractionHandler> {
 	const interactions = new Collection<string, InteractionHandler>();
-	for (const interactionImport of Object.values(interactionsModule)) {
+	for (const interactionImport of Object.values(interactionsImports)) {
 		interactions.set(interactionImport.name, interactionImport);
 	}
 	return interactions;
@@ -120,7 +118,8 @@ export async function createClient({
 			const handler = client.commands.get(interaction.commandName);
 			await handler.execute(interaction);
 		} else if (interaction.isStringSelectMenu() || interaction.isButton()) {
-			const handler = client.interactions.get(interaction.customId);
+			const [interactionType] = interaction.customId.split('|');
+			const handler = client.interactions.get(interactionType);
 			await handler.execute(interaction);
 		} else if (interaction.isAutocomplete()) {
 			const handler = client.commands.get(interaction.commandName);

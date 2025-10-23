@@ -1,74 +1,35 @@
 import {
+	ActionRowBuilder,
 	AutocompleteInteraction,
+	ButtonBuilder,
+	ButtonStyle,
 	CacheType,
 	ChatInputCommandInteraction,
 	SlashCommandBuilder,
 } from 'discord.js';
 import { Command } from './types';
 import { FreddieBotClient } from '../types';
-import { assert, isNotPartialChannel } from '../utils/index.js';
-
-// Could be more restrictive here if we wanted.
-type Boss = string;
+import {
+	RESPAWN_VARIANCE,
+	ML_CHANNELS,
+	bosses,
+	bossNames,
+	Boss,
+	DiscordChannelScopedTimerAggregator,
+	ChannelInstancer,
+	HasTimerAggregators,
+	timerSymbol,
+	shortTime,
+	createChannelInstancer,
+	getTimerAggregatorForChannel,
+	allChannels,
+	buildBossTimerMessage,
+} from './bosstimer-helper.js';
+import { assert } from '../utils/index.js';
 
 const NAME_ARG = 'name';
 const CHANNEL_ARG = 'channel';
-
-const ML_CHANNELS = 6;
-const RESPAWN_VARIANCE = 0.1;
 const DISCORD_CHOICE_API_LIMIT = 25;
-
-const msPer = {
-	second: 1000,
-	minute: 60 * 1000,
-	hour: 60 * 60 * 1000,
-};
-
-// Note: more than 25 bosses are supported, but the discord API caps choices at 25. So we implement autocomplete
-// to keep the experience ok.
-const bosses = new Map<Boss, number>([
-	['anego', 8 * msPer.hour],
-	['samurai', 11 * msPer.hour],
-	['mano', 1 * msPer.hour],
-	['faust', 2 * msPer.hour],
-	['clang', 2 * msPer.hour],
-	['timer', 2 * msPer.hour],
-	['mushmom', 2 * msPer.hour],
-	['dyle', 2 * msPer.hour],
-	['zmushmom', 2 * msPer.hour],
-	['fox', 3 * msPer.hour],
-	['taeroon', 3 * msPer.hour],
-	['sagecat', 3 * msPer.hour],
-	['eliza', 3 * msPer.hour],
-	['snowman', 3 * msPer.hour],
-	['manon', 1.5 * msPer.hour],
-	['griffey', 1.5 * msPer.hour],
-	['pianusl', 36 * msPer.hour],
-	['pianusr', 24 * msPer.hour],
-	['stumpy', 1 * msPer.hour],
-	['balrog', 3 * msPer.hour],
-	['deo', 1 * msPer.hour],
-	['seruf', 1 * msPer.hour],
-	['zeno', 2 * msPer.hour],
-	['kimera', 3 * msPer.hour],
-	['levi', 4 * msPer.hour],
-	['dodo', 4 * msPer.hour],
-	['lilynouch', 4 * msPer.hour],
-	['lyka', 4 * msPer.hour],
-	// TODO: Add bigfoot, make it intuitive. Different maps have different spawns.
-	// ['bigfoot', 1],
-	['crow', 23 * msPer.hour],
-	['spirit', 12 * msPer.hour],
-	['shade', 3 * msPer.hour],
-	['dummy', 3 * msPer.hour],
-	['riche', 3 * msPer.hour],
-	['witch', 3 * msPer.hour],
-	['camera', 3 * msPer.hour],
-	['scholar', 3 * msPer.hour],
-	['rurumo', 40 * msPer.minute],
-	['deetnroi', 40 * msPer.minute],
-]);
-const bossNames = Array.from(bosses.keys());
 
 export const bosstimer: Command = {
 	data: new SlashCommandBuilder()
@@ -140,7 +101,7 @@ export const bosstimer: Command = {
 				break;
 			}
 			case 'show': {
-				await showBossTimers(interaction);
+				await showBossTimersWithButtons(interaction);
 				break;
 			}
 			case 'delete': {
@@ -188,60 +149,6 @@ export const bosstimer: Command = {
 	},
 };
 
-function getTimerAggregatorForChannel(
-	client: FreddieBotClient,
-	channelId: string
-): DiscordChannelScopedTimerAggregator {
-	const clientReadyP = client.isReady()
-		? Promise.resolve()
-		: new Promise((resolve) =>
-				(client as FreddieBotClient).once('ready', resolve)
-		  );
-	const instancer = (client as HasTimerAggregators)[timerSymbol];
-	const timerAggregator = instancer.getOrCreate(channelId, () =>
-		createTimerAggregator(async (name, channels, expiration) => {
-			if (!client.isReady()) {
-				await clientReadyP;
-			}
-			const sendTimerReminder = async () => {
-				const clearTimersP = client.bosses.clearBossTimer(
-					name,
-					channelId,
-					channels
-				);
-				const discordChannel = await client.channels.fetch(channelId);
-				if (timerAggregator.isEmpty) {
-					instancer.delete(channelId);
-				}
-				assert(
-					discordChannel.isTextBased() &&
-						isNotPartialChannel(discordChannel),
-					'Attempted to send bosstimer reminder to non-text-based channel.'
-				);
-				const respawnTimeMs = bosses.get(name);
-				assert(respawnTimeMs !== undefined, `Unexpected boss: ${name}`);
-				await Promise.all([
-					clearTimersP,
-					discordChannel?.send(
-						`**${name}** is spawning between now and ${shortTime(
-							expiration + 2 * respawnTimeMs * RESPAWN_VARIANCE
-						)} on the following channels: ${channels.join(', ')}.`
-					),
-				]);
-			};
-
-			// This ensures errors get propagated to the client.
-			client.pushAsyncWork('boss-timer', sendTimerReminder());
-		})
-	);
-	return timerAggregator;
-}
-
-type HasTimerAggregators = FreddieBotClient & {
-	[timerSymbol]: ChannelInstancer<DiscordChannelScopedTimerAggregator>;
-};
-
-const timerSymbol = Symbol('bosstimer');
 function getTimerAggregatorInstancer(
 	interaction: ChatInputCommandInteraction
 ): ChannelInstancer<DiscordChannelScopedTimerAggregator> {
@@ -343,7 +250,7 @@ async function addBossTimer(
 	}
 }
 
-async function showBossTimers(
+async function showBossTimersWithButtons(
 	interaction: ChatInputCommandInteraction<CacheType>
 ): Promise<void> {
 	const { name, respawnCooldownMs } =
@@ -354,35 +261,18 @@ async function showBossTimers(
 
 	const instancer = getTimerAggregatorInstancer(interaction);
 	const timerAggregator = instancer.get(interaction.channelId);
-	const noTimersMsg = 'No timers are pending for this boss.';
-	if (timerAggregator === undefined) {
-		await interaction.reply(noTimersMsg);
-		return;
-	}
+	const timers = timerAggregator?.getExistingTimers(name) ?? [];
 
-	const timers = timerAggregator.getExistingTimers(name);
-	if (timers.length === 0) {
-		await interaction.reply(noTimersMsg);
-		return;
-	}
-
-	timers.sort((a, b) => a.channel - b.channel);
-	await interaction.reply(
-		`**${name}** will spawn on:\n\n${timers
-			.map(
-				(t) =>
-					`Channel ${t.channel}: between ${shortTime(
-						t.expiration
-					)} and ${shortTime(
-						t.expiration + 2 * respawnCooldownMs * RESPAWN_VARIANCE
-					)}`
-			)
-			.join('\n')}`
+	const { content, components } = buildBossTimerMessage(
+		name,
+		timers,
+		respawnCooldownMs
 	);
-}
 
-function shortTime(ms: number): string {
-	return `<t:${Math.floor(ms / 1000)}:t>`;
+	await interaction.reply({
+		content,
+		components,
+	});
 }
 
 async function deleteBossTimer(
@@ -440,154 +330,4 @@ async function deleteBossTimer(
 		msg += ' No timer was set on remaining channels.';
 	}
 	await interaction.editReply(msg);
-}
-
-interface ChannelInstancer<T> {
-	get(channelId: string): T | undefined;
-	getOrCreate(channelId: string, lazyCreate: () => T): T;
-	delete(channelId: string): boolean;
-}
-
-function createChannelInstancer<T>(): ChannelInstancer<T> {
-	const instances = new Map<string, T>();
-	return {
-		get(channelId: string): T | undefined {
-			return instances.get(channelId);
-		},
-		getOrCreate(channelId: string, lazyCreate: () => T): T {
-			let instance = instances.get(channelId);
-			if (instance === undefined) {
-				instance = lazyCreate();
-				instances.set(channelId, instance);
-			}
-			return instance;
-		},
-		delete(channelId: string): boolean {
-			return instances.delete(channelId);
-		},
-	};
-}
-
-interface DiscordChannelScopedTimerAggregator {
-	addBossTimer(name: Boss, expiration: number, channels: number[]): void;
-	getExistingTimers(name: Boss): { channel: number; expiration: number }[];
-	clearBossTimer(name: Boss, channels: number[]): void;
-	isEmpty: boolean;
-}
-
-const roundToNearestMinute = (ms: number) =>
-	Math.floor(ms / msPer.minute) * msPer.minute;
-
-const allChannels = Array.from({ length: ML_CHANNELS }, (_, i) => i + 1);
-
-/**
- * beware: onTimerExpired does not propagate errors. Creator is expected to handle them appropriately.
- */
-function createTimerAggregator(
-	onTimerExpired: (
-		name: Boss,
-		channels: number[],
-		expiration: number
-	) => Promise<void>,
-	round: (ms: number) => number = roundToNearestMinute
-): DiscordChannelScopedTimerAggregator {
-	// Active timers for all bosses scoped to a given discord channel.
-	const timers = new Map<
-		Boss,
-		Map</* channel */ number, /* expiration */ number>
-	>();
-	const pendingTimeouts = new Map<Boss, NodeJS.Timeout>();
-
-	function addTimer(name: Boss, expiration: number, channel: number) {
-		assert(
-			channel >= 1 && channel <= ML_CHANNELS,
-			`Invalid channel: ${channel}`
-		);
-		const channelTimers = timers.get(name) ?? new Map<number, number>();
-		channelTimers.set(channel, expiration);
-		timers.set(name, channelTimers);
-	}
-
-	function removeTimer(name: Boss, channel: number) {
-		const channelTimers = timers.get(name);
-		if (channelTimers === undefined) {
-			return;
-		}
-		channelTimers.delete(channel);
-		if (channelTimers.size === 0) {
-			timers.delete(name);
-		}
-	}
-
-	function nextTimerFor(name: Boss): {
-		expiration: number | undefined;
-		channels: number[];
-	} {
-		const channelTimers = timers.get(name);
-		if (channelTimers === undefined) {
-			return { expiration: undefined, channels: [] };
-		}
-
-		const expiration = Math.min(...channelTimers.values());
-		return {
-			expiration,
-			channels: allChannels.filter(
-				(channel) =>
-					channelTimers.get(channel) !== undefined &&
-					round(channelTimers.get(channel)) === round(expiration)
-			),
-		};
-	}
-
-	function recomputeNextTimeout(name: Boss): void {
-		const existingTimeout = pendingTimeouts.get(name);
-		if (existingTimeout) {
-			clearTimeout(existingTimeout);
-		}
-
-		const nextNotification = nextTimerFor(name);
-		if (nextNotification.expiration !== undefined) {
-			const timeoutId = setTimeout(() => {
-				clearBossTimer(name, nextNotification.channels);
-				onTimerExpired(
-					name,
-					nextNotification.channels,
-					nextNotification.expiration
-				);
-			}, nextNotification.expiration - Date.now());
-			pendingTimeouts.set(name, timeoutId);
-		}
-	}
-
-	function addBossTimer(name: Boss, expiration: number, channels: number[]) {
-		for (const channel of channels) {
-			addTimer(name, expiration, channel);
-		}
-
-		recomputeNextTimeout(name);
-	}
-
-	function getExistingTimers(
-		name: Boss
-	): { channel: number; expiration: number }[] {
-		return Array.from(timers.get(name)?.entries() ?? []).map(
-			([channel, expiration]) => ({ channel, expiration })
-		);
-	}
-
-	function clearBossTimer(name: Boss, channels: number[]): void {
-		for (const channel of channels) {
-			removeTimer(name, channel);
-		}
-
-		recomputeNextTimeout(name);
-	}
-	return {
-		addBossTimer,
-		getExistingTimers,
-		clearBossTimer,
-		get isEmpty() {
-			return timers.size === 0;
-		},
-	};
 }
