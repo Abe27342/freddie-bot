@@ -43,11 +43,16 @@ export const bosstimerAdd: InteractionHandler = {
 
 			// Get the updated timers and respawn cooldown
 			const respawnCooldownMs = bosses.get(bossName)!;
-			const timerAggregator = getTimerAggregatorForChannel(
-				client,
-				channelId
-			);
-			const timers = timerAggregator.getExistingTimers(bossName);
+
+			// Fetch all timers for this boss from the database to include expired ones
+			const allTimers = await client.bosses.getExistingTimers();
+			const timers = allTimers
+				.filter((t) => t.name === bossName && t.channelId === channelId)
+				.map((t) => ({
+					channel: t.channel,
+					expiration: t.expiration,
+					reminderSent: t.reminderSent,
+				}));
 
 			// Build the updated message
 			const { content, components } = buildBossTimerMessage(

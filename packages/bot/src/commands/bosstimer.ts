@@ -20,6 +20,8 @@ import {
 	HasTimerAggregators,
 	timerSymbol,
 	shortTime,
+	longTime,
+	isTimerExpired,
 	createChannelInstancer,
 	getTimerAggregatorForChannel,
 	allChannels,
@@ -139,12 +141,22 @@ export const bosstimer: Command = {
 			createChannelInstancer<DiscordChannelScopedTimerAggregator>();
 		(client as HasTimerAggregators)[timerSymbol] = instancer;
 		const existingTimers = await client.bosses.getExistingTimers();
-		for (const { name, channelId, channel, expiration } of existingTimers) {
+		for (const {
+			name,
+			channelId,
+			channel,
+			expiration,
+			reminderSent,
+		} of existingTimers) {
 			const timerAggregator = getTimerAggregatorForChannel(
 				client,
 				channelId
 			);
-			timerAggregator.addBossTimer(name, expiration, [channel]);
+			// Only add timers that haven't expired yet AND haven't had reminders sent
+			// Expired timers will still be loaded for display purposes but won't trigger new notifications
+			if (!reminderSent) {
+				timerAggregator.addBossTimer(name, expiration, [channel]);
+			}
 		}
 	},
 };
@@ -259,9 +271,16 @@ async function showBossTimersWithButtons(
 		return;
 	}
 
-	const instancer = getTimerAggregatorInstancer(interaction);
-	const timerAggregator = instancer.get(interaction.channelId);
-	const timers = timerAggregator?.getExistingTimers(name) ?? [];
+	const client = interaction.client as FreddieBotClient;
+	// Fetch all timers for this boss from the database to include expired ones
+	const allTimers = await client.bosses.getExistingTimers();
+	const timers = allTimers
+		.filter((t) => t.name === name && t.channelId === interaction.channelId)
+		.map((t) => ({
+			channel: t.channel,
+			expiration: t.expiration,
+			reminderSent: t.reminderSent,
+		}));
 
 	const { content, components } = buildBossTimerMessage(
 		name,

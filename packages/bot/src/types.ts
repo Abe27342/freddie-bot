@@ -49,6 +49,11 @@ export interface BossTimer {
 	 * Channel the boss is spawning in.
 	 */
 	channel: number;
+
+	/**
+	 * Whether a reminder has already been sent for this timer.
+	 */
+	reminderSent?: boolean;
 }
 
 export interface ClientOptions {
