@@ -81,6 +81,14 @@ export function shortTime(ms: number): string {
 	return `<t:${Math.floor(ms / 1000)}:t>`;
 }
 
+export function longTime(ms: number): string {
+	return `<t:${Math.floor(ms / 1000)}:f>`;
+}
+
+export function isTimerExpired(expiration: number): boolean {
+	return expiration < Date.now();
+}
+
 export function createTimerAggregator(
 	onTimerExpired: (
 		name: Boss,
@@ -228,7 +236,8 @@ export function getTimerAggregatorForChannel(
 				await clientReadyP;
 			}
 			const sendTimerReminder = async () => {
-				const clearTimersP = client.bosses.clearBossTimer(
+				// Mark the timer as having its reminder sent in the database
+				const markReminderSentP = client.bosses.markTimerReminderSent(
 					name,
 					channelId,
 					channels
@@ -245,7 +254,7 @@ export function getTimerAggregatorForChannel(
 				const respawnTimeMs = bosses.get(name);
 				assert(respawnTimeMs !== undefined, `Unexpected boss: ${name}`);
 				await Promise.all([
-					clearTimersP,
+					markReminderSentP,
 					discordChannel?.send(
 						`**${name}** is spawning between now and ${shortTime(
 							expiration + 2 * respawnTimeMs * RESPAWN_VARIANCE
@@ -306,23 +315,45 @@ export async function addBossTimerForChannel(
 // Helper function to build the message content and buttons for the quick command
 export function buildBossTimerMessage(
 	bossName: string,
-	timers: { channel: number; expiration: number }[],
+	timers: { channel: number; expiration: number; reminderSent?: boolean }[],
 	respawnCooldownMs: number
 ): { content: string; components: ActionRowBuilder<ButtonBuilder>[] } {
 	// Create message content
 	let content = `**${bossName}** timers:\n\n`;
 
 	if (timers.length > 0) {
-		timers.sort((a, b) => a.channel - b.channel);
-		content += timers
-			.map(
-				(t) =>
-					`Channel ${t.channel}: spawns between ${shortTime(
-						t.expiration
-					)} and ${shortTime(
-						t.expiration + 2 * respawnCooldownMs * RESPAWN_VARIANCE
-					)}`
-			)
+		// Separate active and expired timers
+		const activeTimers = timers.filter(
+			(t) => !isTimerExpired(t.expiration) && !t.reminderSent
+		);
+		const expiredTimers = timers.filter(
+			(t) => isTimerExpired(t.expiration) || t.reminderSent
+		);
+
+		const allTimersToDisplay = [...activeTimers, ...expiredTimers];
+		allTimersToDisplay.sort((a, b) => a.channel - b.channel);
+
+		content += allTimersToDisplay
+			.map((t) => {
+				const isExpired = isTimerExpired(t.expiration);
+				const timeFormat = isExpired ? longTime : shortTime;
+
+				let statusNote = '';
+				if (isExpired) {
+					statusNote = ' *(timer expired)*';
+				}
+
+				const earlyTime = timeFormat(t.expiration);
+				const lateTime = timeFormat(
+					t.expiration + 2 * respawnCooldownMs * RESPAWN_VARIANCE
+				);
+
+				if (isExpired) {
+					return `Channel ${t.channel}: last known spawn between ${earlyTime} and ${lateTime}${statusNote}`;
+				} else {
+					return `Channel ${t.channel}: will spawn between ${earlyTime} and ${lateTime}${statusNote}`;
+				}
+			})
 			.join('\n');
 		content += '\n\n';
 	} else {

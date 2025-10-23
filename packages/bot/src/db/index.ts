@@ -15,6 +15,11 @@ export interface BossTimerStorage {
 		channelId: string,
 		channels: number[]
 	): Promise<void>;
+	markTimerReminderSent(
+		name: string,
+		channelId: string,
+		channels: number[]
+	): Promise<void>;
 }
 
 export interface FreddieBotDb extends BossTimerStorage {
@@ -79,9 +84,26 @@ export async function createDb(): Promise<FreddieBotDb> {
 		await timers.insertMany(timersToInsert);
 	}
 
-	// Clear stale timers (>4 hours old) on startup.
+	async function markTimerReminderSent(
+		name: string,
+		channelId: string,
+		channels: number[]
+	): Promise<void> {
+		await timers.updateMany(
+			{
+				name,
+				channelId,
+				channel: { $in: channels },
+			},
+			{
+				$set: { reminderSent: true },
+			}
+		);
+	}
+
+	// Clear stale timers (>7 days old) on startup.
 	await timers.deleteMany({
-		expiration: { $lt: Date.now() - 1000 * 60 * 60 * 4 },
+		expiration: { $lt: Date.now() - 1000 * 60 * 60 * 24 * 7 },
 	});
 
 	return {
@@ -92,5 +114,6 @@ export async function createDb(): Promise<FreddieBotDb> {
 		getExistingTimers,
 		clearBossTimer,
 		addBossTimers,
+		markTimerReminderSent,
 	};
 }

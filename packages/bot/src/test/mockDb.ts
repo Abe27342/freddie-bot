@@ -47,6 +47,22 @@ export function makeMockDb(
 		timers.push(...newTimers);
 	}
 
+	async function markTimerReminderSent(
+		name: string,
+		channelId: string,
+		channels: number[]
+	): Promise<void> {
+		for (const timer of timers) {
+			if (
+				timer.name === name &&
+				timer.channelId === channelId &&
+				channels.includes(timer.channel)
+			) {
+				timer.reminderSent = true;
+			}
+		}
+	}
+
 	return {
 		getRemindersBefore,
 		clearReminder,
@@ -55,5 +71,6 @@ export function makeMockDb(
 		getExistingTimers,
 		clearBossTimer,
 		addBossTimers,
+		markTimerReminderSent,
 	};
 }
