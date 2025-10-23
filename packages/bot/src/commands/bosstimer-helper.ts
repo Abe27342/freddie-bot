@@ -321,44 +321,50 @@ export function buildBossTimerMessage(
 	// Create message content
 	let content = `**${bossName}** timers:\n\n`;
 
-	if (timers.length > 0) {
-		// Separate active and expired timers
-		const activeTimers = timers.filter(
-			(t) => !isTimerExpired(t.expiration) && !t.reminderSent
-		);
-		const expiredTimers = timers.filter(
-			(t) => isTimerExpired(t.expiration) || t.reminderSent
-		);
-
-		const allTimersToDisplay = [...activeTimers, ...expiredTimers];
-		allTimersToDisplay.sort((a, b) => a.channel - b.channel);
-
-		content += allTimersToDisplay
-			.map((t) => {
-				const isExpired = isTimerExpired(t.expiration);
-				const timeFormat = isExpired ? longTime : shortTime;
-
-				let statusNote = '';
-				if (isExpired) {
-					statusNote = ' *(timer expired)*';
-				}
-
-				const earlyTime = timeFormat(t.expiration);
-				const lateTime = timeFormat(
-					t.expiration + 2 * respawnCooldownMs * RESPAWN_VARIANCE
-				);
-
-				if (isExpired) {
-					return `Channel ${t.channel}: last known spawn between ${earlyTime} and ${lateTime}${statusNote}`;
-				} else {
-					return `Channel ${t.channel}: will spawn between ${earlyTime} and ${lateTime}${statusNote}`;
-				}
-			})
-			.join('\n');
-		content += '\n\n';
-	} else {
-		content += 'No timers are currently pending.\n\n';
+	// Keep only the most recent timer per channel
+	const timersByChannel = new Map<number, (typeof timers)[0]>();
+	for (const timer of timers) {
+		const existing = timersByChannel.get(timer.channel);
+		if (!existing || timer.expiration > existing.expiration) {
+			timersByChannel.set(timer.channel, timer);
+		}
 	}
+
+	// Display all channels (1 through ML_CHANNELS)
+	const channelLines: string[] = [];
+	for (const channel of allChannels) {
+		const timer = timersByChannel.get(channel);
+
+		if (!timer) {
+			channelLines.push(`Channel ${channel}: no spawn time found`);
+		} else {
+			const isExpired = isTimerExpired(timer.expiration);
+			const timeFormat = isExpired ? longTime : shortTime;
+
+			let statusNote = '';
+			if (isExpired) {
+				statusNote = ' *(timer expired)*';
+			}
+
+			const earlyTime = timeFormat(timer.expiration);
+			const lateTime = timeFormat(
+				timer.expiration + 2 * respawnCooldownMs * RESPAWN_VARIANCE
+			);
+
+			if (isExpired) {
+				channelLines.push(
+					`Channel ${channel}: last known spawn between ${earlyTime} and ${lateTime}${statusNote}`
+				);
+			} else {
+				channelLines.push(
+					`Channel ${channel}: will spawn between ${earlyTime} and ${lateTime}${statusNote}`
+				);
+			}
+		}
+	}
+
+	content += channelLines.join('\n');
+	content += '\n\n';
 
 	content += 'Click a button below to add a timer for that channel:';
 
