@@ -374,7 +374,7 @@ async function showBossTimers(
 					`Channel ${t.channel}: between ${shortTime(
 						t.expiration
 					)} and ${shortTime(
-						t.expiration + respawnCooldownMs * RESPAWN_VARIANCE
+						t.expiration + 2 * respawnCooldownMs * RESPAWN_VARIANCE
 					)}`
 			)
 			.join('\n')}`
