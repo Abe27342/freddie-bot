@@ -338,7 +338,10 @@ export function buildBossTimerMessage(
 		if (!timer) {
 			channelLines.push(`Channel ${channel}: no spawn time found`);
 		} else {
-			const isExpired = isTimerExpired(timer.expiration);
+			// Timer is only considered expired for display purposes 1 minute after the possible end spawn time
+			const endSpawnTime =
+				timer.expiration + 2 * respawnCooldownMs * RESPAWN_VARIANCE;
+			const isExpired = Date.now() > endSpawnTime + msPer.minute;
 			const timeFormat = isExpired ? longTime : shortTime;
 
 			let statusNote = '';
@@ -347,9 +350,7 @@ export function buildBossTimerMessage(
 			}
 
 			const earlyTime = timeFormat(timer.expiration);
-			const lateTime = timeFormat(
-				timer.expiration + 2 * respawnCooldownMs * RESPAWN_VARIANCE
-			);
+			const lateTime = timeFormat(endSpawnTime);
 
 			if (isExpired) {
 				channelLines.push(
