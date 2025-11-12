@@ -10,11 +10,13 @@ import { createCanvas, loadImage, Image } from 'canvas';
 import { fileURLToPath } from 'node:url';
 import { Command } from './types';
 import {
+	Item,
 	Stats,
 	getCharacterAvatar,
 	getCharacterStats,
 	isUnbanned,
 } from './apis/index.js';
+import { withRetry } from '../utils/index.js';
 
 const NAME_ARG = 'name';
 const rootDir = path.join(
@@ -39,10 +41,53 @@ export const maple: Command = {
 		await interaction.deferReply();
 		const name = interaction.options.getString(NAME_ARG);
 
-		const [stats, avatarInfo] = await Promise.all([
-			getCharacterStats(name),
-			getCharacterAvatar(name, true),
-		]);
+		let stats: Stats;
+		let avatarInfo: { items: Item[]; avatar: ArrayBuffer };
+		try {
+			// Retry only the API calls, not the file I/O or Discord updates
+			const result = await withRetry(
+				async () => {
+					return await Promise.all([
+						getCharacterStats(name),
+						getCharacterAvatar(name, true),
+					]);
+				},
+				{
+					maxRetries: 3,
+					baseDelayMs: 1000,
+					shouldRetry: (error) => {
+						// Don't retry if it's clearly not a transient error
+						return !(
+							error.message.includes(
+								'Unexpected passthrough URL'
+							) ||
+							error.message.includes(
+								'Unable to get v251/feet-centered avatar'
+							)
+						);
+					},
+				}
+			);
+			stats = result[0];
+			avatarInfo = result[1];
+		} catch (error) {
+			// All retries failed, provide helpful error message
+			const errorMessage = error.message || 'Unknown error';
+			if (errorMessage.includes('Failed to connect')) {
+				await interaction.editReply({
+					content:
+						'❌ Unable to connect to the MapleLegends API. The API may be temporarily down. Please try again later.',
+				});
+				return;
+			} else if (errorMessage.includes('server error')) {
+				await interaction.editReply({
+					content:
+						'❌ The MapleLegends API is experiencing issues (server error). Please try again later.',
+				});
+				return;
+			}
+		}
+
 		if (!stats || !avatarInfo) {
 			await interaction.editReply({
 				content: 'Character not found.',
@@ -83,7 +128,6 @@ const assets = [
 		x: 900,
 		y: 104,
 	},
-	
 ];
 
 async function renderCharacter(
@@ -94,7 +138,7 @@ async function renderCharacter(
 	const canvas = createCanvas(600, 400);
 	const ctx = canvas.getContext('2d');
 	ctx.fillStyle = '#0000ff';
-	const asset = assets[Math.random() < 0.001 ? 0:1];
+	const asset = assets[Math.random() < 0.001 ? 0 : 1];
 	const background = await loadImage(path.join(rootDir, asset.name));
 	ctx.drawImage(
 		background,
