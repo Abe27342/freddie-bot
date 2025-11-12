@@ -19,18 +19,16 @@ import {
 	ChannelInstancer,
 	HasTimerAggregators,
 	timerSymbol,
-	shortTime,
-	longTime,
-	isTimerExpired,
 	createChannelInstancer,
 	getTimerAggregatorForChannel,
 	allChannels,
 	buildBossTimerMessage,
 } from './bosstimer-helper.js';
-import { assert } from '../utils/index.js';
+import { assert, parseTimeDelta } from '../utils/index.js';
 
 const NAME_ARG = 'name';
 const CHANNEL_ARG = 'channel';
+const TIME_SINCE_KILL_ARG = 'time_since_kill';
 const DISCORD_CHOICE_API_LIMIT = 25;
 
 export const bosstimer: Command = {
@@ -56,6 +54,14 @@ export const bosstimer: Command = {
 							'Space-separated list of channels to add timers to. "all" is shorthand for all channels.'
 						)
 						.setRequired(true)
+				)
+				.addStringOption((builder) =>
+					builder
+						.setName(TIME_SINCE_KILL_ARG)
+						.setDescription(
+							'Optional: Time since boss was killed. Example: 5m 30s for 5 minutes, 30 seconds ago.'
+						)
+						.setRequired(false)
 				)
 		)
 		.addSubcommand((builder) =>
@@ -230,10 +236,30 @@ async function addBossTimer(
 
 	const { name, respawnCooldownMs } = nameInfo;
 
+	// Parse optional time_since_kill parameter
+	const timeSinceKillArg = interaction.options.getString(TIME_SINCE_KILL_ARG);
+	let timeSinceKillMs = 0;
+	if (timeSinceKillArg) {
+		const parsed = parseTimeDelta(timeSinceKillArg);
+		if (parsed === undefined) {
+			await interaction.reply({
+				content:
+					'Invalid time format. Use format like: 5m 30s (5 minutes, 30 seconds)',
+				ephemeral: true,
+			});
+			return;
+		}
+		timeSinceKillMs = parsed;
+	}
+
 	const client = interaction.client as FreddieBotClient;
 
+	// Calculate respawn time: current time + remaining respawn time - time since kill
 	const respawnTimeMs =
-		Date.now() + respawnCooldownMs * (1 - RESPAWN_VARIANCE);
+		Date.now() +
+		respawnCooldownMs * (1 - RESPAWN_VARIANCE) -
+		timeSinceKillMs;
+
 	await Promise.all([
 		interaction.deferReply(),
 		client.bosses.addBossTimers(
