@@ -50,7 +50,22 @@ export async function getCharacterAvatar(
 ): Promise<{ items: Item[]; avatar: ArrayBuffer } | undefined> {
 	const avatarUrl = new URL('/api/getavatar', MAPLELEGENDS_BASE_API);
 	avatarUrl.searchParams.append('name', name);
-	let response = await fetch(avatarUrl.href);
+	let response: Response;
+	try {
+		response = await fetch(avatarUrl.href);
+	} catch (error) {
+		throw new Error(
+			`Failed to connect to MapleLegends API: ${error.message}`
+		);
+	}
+
+	// Check for server errors
+	if (response.status >= 500) {
+		throw new Error(
+			`MapleLegends API returned server error: ${response.status}`
+		);
+	}
+
 	const passthroughUrl = response.url;
 	const prefix = `${MAPLESTORY_BASE_API}/api/character/`;
 	if (!passthroughUrl.startsWith(prefix)) {
@@ -89,7 +104,18 @@ export async function getCharacterAvatar(
 		if (feetCenter) {
 			updatedUrl.searchParams.set('renderMode', 'feetCenter');
 		}
-		response = await fetch(updatedUrl.href);
+		try {
+			response = await fetch(updatedUrl.href);
+		} catch (error) {
+			throw new Error(
+				`Failed to connect to MapleStory.io API: ${error.message}`
+			);
+		}
+		if (response.status >= 500) {
+			throw new Error(
+				`MapleStory.io API returned server error: ${response.status}`
+			);
+		}
 		if (!response.ok) {
 			throw new Error('Unable to get v251/feet-centered avatar.');
 		}
@@ -106,10 +132,31 @@ export async function getCharacterStats(
 ): Promise<Stats | undefined> {
 	const url = new URL(`/api/character`, MAPLELEGENDS_BASE_API);
 	url.searchParams.append('name', name);
-	const response = await fetch(url.href);
+	let response: Response;
+	try {
+		response = await fetch(url.href);
+	} catch (error) {
+		throw new Error(
+			`Failed to connect to MapleLegends API: ${error.message}`
+		);
+	}
+
 	if (response.status === 404) {
 		return undefined;
 	}
+
+	if (response.status >= 500) {
+		throw new Error(
+			`MapleLegends API returned server error: ${response.status}`
+		);
+	}
+
+	if (!response.ok) {
+		throw new Error(
+			`MapleLegends API request failed with status: ${response.status}`
+		);
+	}
+
 	return await response.json();
 }
 
