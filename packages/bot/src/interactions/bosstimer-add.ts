@@ -39,6 +39,9 @@ export const bosstimerAdd: InteractionHandler = {
 		const channelId = interaction.channelId;
 
 		try {
+			// Defer the update to prevent interaction timeout during database operations
+			await interaction.deferUpdate();
+
 			await addBossTimerForChannel(client, channelId, bossName, channel);
 
 			// Get the updated timers and respawn cooldown
@@ -62,20 +65,20 @@ export const bosstimerAdd: InteractionHandler = {
 			);
 
 			// Update the original message to reflect the new timer status
-			await interaction.update({
+			await interaction.editReply({
 				content,
 				components,
 			});
 		} catch (error) {
 			if (error.message.includes('Timer already exists')) {
-				await interaction.reply({
+				await interaction.followUp({
 					content: `A timer for ${bossName} in channel ${channel} already exists.`,
 					ephemeral: true,
 				});
 				return;
 			}
 			console.error('Error adding boss timer:', error);
-			await interaction.reply({
+			await interaction.followUp({
 				content:
 					'Failed to add timer. Please manually add with /bosstimer add.',
 				ephemeral: true,
