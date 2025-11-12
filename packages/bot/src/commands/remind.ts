@@ -5,26 +5,10 @@ import {
 } from 'discord.js';
 import type { FreddieBotClient, Reminder } from '../types';
 import { Command } from './types';
+import { parseTimeDelta } from '../utils/index.js';
 
 const TIME_ARG = 'time_delta';
 const MESSAGE_ARG = 'message';
-
-function parseTimeDelta(arg: string): number | undefined {
-	const matches = arg.match(
-		/((?<days>\d+)d)?\s*((?<hours>\d+)h)?\s*((?<minutes>\d+)m)?\s*((?<seconds>\d+)s)?/
-	);
-	if (!matches) {
-		return undefined;
-	}
-	const { days, hours, minutes, seconds } = matches.groups ?? {};
-	return (
-		1000 *
-		(Number(days ?? 0) * 24 * 60 * 60 +
-			Number(hours ?? 0) * 60 * 60 +
-			Number(minutes ?? 0) * 60 +
-			Number(seconds ?? 0))
-	);
-}
 
 export const remindme: Command = {
 	data: new SlashCommandBuilder()
