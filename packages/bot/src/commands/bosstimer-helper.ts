@@ -149,6 +149,7 @@ export function createTimerAggregator(
 		const existingTimeout = pendingTimeouts.get(name);
 		if (existingTimeout) {
 			clearTimeout(existingTimeout);
+			pendingTimeouts.delete(name);
 		}
 
 		const nextNotification = nextTimerFor(name);
