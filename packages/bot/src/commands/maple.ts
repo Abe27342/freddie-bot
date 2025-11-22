@@ -101,19 +101,10 @@ export const maple: Command = {
 			name
 		);
 
-		const filename = `${name}-${Date.now()}.png`;
-		if (!assetsEnsured) {
-			await fs.mkdir(rootDir, { recursive: true });
-			assetsEnsured = true;
-		}
-		const fullFilename = path.join(rootDir, filename);
-		await fs.writeFile(fullFilename, buffer);
-
-		const file = new AttachmentBuilder(fullFilename);
+		const file = new AttachmentBuilder(buffer);
 		await interaction.editReply({
 			files: [file],
 		});
-		await fs.rm(fullFilename);
 	},
 };
 
