@@ -98,10 +98,22 @@ export async function createClient({
 	client.on('interactionCreate', (interaction) => {
 		const interactionLocationId =
 			interaction.guildId ?? interaction.channelId;
+		let interactionType = 'unknown';
+		if (interaction.isChatInputCommand()) {
+			interactionType = `command "/${interaction.commandName}"`;
+		} else if (interaction.isStringSelectMenu()) {
+			interactionType = `select menu "${interaction.customId}"`;
+		} else if (interaction.isAutocomplete()) {
+			interactionType = `autocomplete for "/${interaction.commandName}"`;
+		}
 		if (shouldProcessInteraction(interactionLocationId)) {
-			console.log(`Processing interaction for: ${interactionLocationId}`);
+			console.log(
+				`Processing ${interactionType} for: ${interactionLocationId}`
+			);
 		} else {
-			console.log(`Ignoring interaction for: ${interactionLocationId}`);
+			console.log(
+				`Ignoring ${interactionType} for: ${interactionLocationId}`
+			);
 			return;
 		}
 
