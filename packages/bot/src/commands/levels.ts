@@ -73,79 +73,84 @@ export const levels: Command = {
 		const canvas = createCanvas(1280, 720);
 		const ctx = canvas.getContext('2d');
 
-		new Chart(ctx as any, {
-			type: 'line',
-			data: {
-				datasets: levels.map((levelEntries, index) => ({
-					label: names[index],
-					data: levelEntries.map(({ level, date }) => ({
-						x: date,
-						y: level,
+		let chart: Chart<any> | undefined;
+		try {
+			chart = new Chart(ctx as any, {
+				type: 'line',
+				data: {
+					datasets: levels.map((levelEntries, index) => ({
+						label: names[index],
+						data: levelEntries.map(({ level, date }) => ({
+							x: date,
+							y: level,
+						})),
+						showLine,
 					})),
-					showLine,
-				})),
-			},
-			options: {
-				plugins: {
-					title: {
-						text: `Level history of ${names.join(', ')}`,
-						display: true,
-					},
 				},
-				scales: {
-					x: {
-						type: 'time',
-						time: {
-							// Luxon format string
-							tooltipFormat: 'DD T',
-						},
+				options: {
+					plugins: {
 						title: {
+							text: `Level history of ${names.join(', ')}`,
 							display: true,
-							text: 'Date',
 						},
 					},
-					y: {
-						title: {
-							display: true,
-							text: 'Level',
+					scales: {
+						x: {
+							type: 'time',
+							time: {
+								// Luxon format string
+								tooltipFormat: 'DD T',
+							},
+							title: {
+								display: true,
+								text: 'Date',
+							},
+						},
+						y: {
+							title: {
+								display: true,
+								text: 'Level',
+							},
 						},
 					},
 				},
-			},
-			plugins: [
-				{
-					id: 'customCanvasBackground',
-					beforeDraw: (chart, args, options) => {
-						const { ctx } = chart;
-						ctx.save();
-						ctx.globalCompositeOperation = 'destination-over';
-						ctx.fillStyle = '#36393e';
-						ctx.fillRect(0, 0, canvas.width, canvas.height);
-						ctx.restore();
+				plugins: [
+					{
+						id: 'customCanvasBackground',
+						beforeDraw: (chart, args, options) => {
+							const { ctx } = chart;
+							ctx.save();
+							ctx.globalCompositeOperation = 'destination-over';
+							ctx.fillStyle = '#36393e';
+							ctx.fillRect(0, 0, canvas.width, canvas.height);
+							ctx.restore();
+						},
 					},
-				},
-			],
-		});
+				],
+			});
 
-		const dir = './assets/levels';
-		const filename = `${names.join(',')}-${Date.now()}.png`;
-		if (!assetsEnsured) {
-			await fs.promises.mkdir(dir, { recursive: true });
-			assetsEnsured = true;
+			const dir = './assets/levels';
+			const filename = `${names.join(',')}-${Date.now()}.png`;
+			if (!assetsEnsured) {
+				await fs.promises.mkdir(dir, { recursive: true });
+				assetsEnsured = true;
+			}
+			const fullFilename = path.join(dir, filename);
+			const out = fs.createWriteStream(fullFilename);
+			const stream = canvas.createPNGStream();
+			stream.pipe(out);
+			await new Promise((resolve, reject) => {
+				out.on('finish', resolve);
+				out.on('error', reject);
+			});
+
+			const file = new AttachmentBuilder(fullFilename);
+			await interaction.editReply({
+				files: [file],
+			});
+			await fs.promises.rm(fullFilename);
+		} finally {
+			chart.destroy();
 		}
-		const fullFilename = path.join(dir, filename);
-		const out = fs.createWriteStream(fullFilename);
-		const stream = canvas.createPNGStream();
-		stream.pipe(out);
-		await new Promise((resolve, reject) => {
-			out.on('finish', resolve);
-			out.on('error', reject);
-		});
-
-		const file = new AttachmentBuilder(fullFilename);
-		await interaction.editReply({
-			files: [file],
-		});
-		await fs.promises.rm(fullFilename);
 	},
 };
