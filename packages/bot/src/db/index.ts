@@ -81,7 +81,18 @@ export async function createDb(): Promise<FreddieBotDb> {
 	}
 
 	async function addBossTimers(timersToInsert: BossTimer[]): Promise<void> {
-		await timers.insertMany(timersToInsert);
+		const validTimers = timersToInsert.filter(t => t
+			&& t.name
+			&& t.expiration
+			&& t.channel
+			&& t.channelId
+		);
+		if (validTimers.length !== timersToInsert.length) {
+			console.warn(`Some timers were invalid and will not be inserted. Valid timers: ${JSON.stringify(validTimers)}. All timers: ${JSON.stringify(timersToInsert)}`);
+		}
+		if (validTimers.length > 0) {
+			await timers.insertMany(validTimers);
+		}
 	}
 
 	async function markTimerReminderSent(
@@ -101,9 +112,13 @@ export async function createDb(): Promise<FreddieBotDb> {
 		);
 	}
 
-	// Clear stale timers (>7 days old) on startup.
+	// Clear stale timers OR documents missing required data on startup.
 	await timers.deleteMany({
-		expiration: { $lt: Date.now() - 1000 * 60 * 60 * 24 * 7 },
+		$or: [
+			{ expiration: { $lt: Date.now() - 1000 * 60 * 60 * 24 * 7 } },
+			{ name: { $exists: false } },
+			{ expiration: { $exists: false } }
+		]
 	});
 
 	return {
