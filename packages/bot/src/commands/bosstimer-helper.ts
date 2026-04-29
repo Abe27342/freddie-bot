@@ -19,6 +19,7 @@ export const bosses = new Map<string, number>([
 	['clang', 2 * msPer.hour],
 	['timer', 2 * msPer.hour],
 	['mushmom', 2 * msPer.hour],
+	['bmushmom', 4 * msPer.hour],
 	['dyle', 2 * msPer.hour],
 	['zmushmom', 2 * msPer.hour],
 	['fox', 3 * msPer.hour],
