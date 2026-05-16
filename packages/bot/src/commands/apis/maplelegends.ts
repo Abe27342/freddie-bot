@@ -2,7 +2,7 @@ import { assert } from '../../utils/index.js';
 import { Item, MAPLESTORY_BASE_API } from './maplestory.js';
 import { JSDOM } from 'jsdom';
 
-export const MAPLELEGENDS_BASE_API = 'https://maplelegends.com';
+export const MAPLELEGENDS_BASE_API = 'https://legends.ml';
 
 export type Stats = BannedStats | UnbannedStats;
 
