@@ -104,6 +104,7 @@ export const maple: Command = {
 		const file = new AttachmentBuilder(buffer);
 		await interaction.editReply({
 			files: [file],
+			content: `/maple ${name}`,
 		});
 	},
 };
