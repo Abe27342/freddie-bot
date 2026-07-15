@@ -195,7 +195,7 @@ export async function getCharacterLevels(
 	const dom = new JSDOM(await response.text());
 	// This is obviously very brittle, but should return table rows for the levels table, including header.
 	const levelsTable = dom.window.document.querySelectorAll(
-		'#page-content > div:nth-child(2) > div > table > tbody > tr'
+		'#page-content > div:nth-child(4) > div > table > tbody > tr'
 	);
 
 	const levelEntries: { level: number; date: Date }[] = [];
