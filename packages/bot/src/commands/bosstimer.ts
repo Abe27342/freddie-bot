@@ -25,7 +25,6 @@ import {
 	buildBossTimerMessage,
 } from './bosstimer-helper.js';
 import { assert, parseTimeDelta } from '../utils/index.js';
-import { startBossTimerCleanup } from '../bossTimerCleanup.js';
 
 const NAME_ARG = 'name';
 const CHANNEL_ARG = 'channel';
@@ -164,11 +163,6 @@ export const bosstimer: Command = {
 				);
 				timerAggregator.addBossTimer(name, expiration, [channel]);
 			}
-		}
-		if (client.isReady()) {
-			startBossTimerCleanup(client);
-		} else {
-			client.once('ready', () => startBossTimerCleanup(client));
 		}
 	},
 };

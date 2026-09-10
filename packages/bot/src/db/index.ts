@@ -11,7 +11,6 @@ dotenv.config({
 export interface BossTimerStorage {
 	addBossTimers(timer: BossTimer[]): Promise<void>;
 	getExistingTimers(query?: BossTimerQuery): Promise<BossTimer[]>;
-	clearStaleBossTimers(): Promise<{ hasMore: boolean }>;
 	clearBossTimer(
 		name: string,
 		channelId: string,

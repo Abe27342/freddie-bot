@@ -35,7 +35,7 @@ describe('boss timer command storage', () => {
 		vi.useRealTimers();
 	});
 
-	it('loads only retained, unsent timers and starts cleanup after ready', async () => {
+	it('loads only unsent timers without scheduling database cleanup', async () => {
 		const timer = {
 			name: 'manon',
 			channelId: 'discord-channel',
@@ -47,15 +47,11 @@ describe('boss timer command storage', () => {
 			timers: [
 				timer,
 				{ ...timer, channelId: 'sent-channel', reminderSent: true },
-				{
-					...timer,
-					channelId: 'stale-channel',
-					expiration: new Date('2026-07-01T12:00:00Z').getTime(),
-				},
 			],
 		});
 		const getTimers = vi.spyOn(client.bosses, 'getExistingTimers');
-		const cleanup = vi.spyOn(client.bosses, 'clearStaleBossTimers');
+		const clearTimers = vi.spyOn(client.bosses, 'clearBossTimer');
+		const initialTimerCount = vi.getTimerCount();
 
 		await bosstimer.initialize!(client);
 		expect(getTimers).toHaveBeenCalledWith({ pendingOnly: true });
@@ -64,17 +60,16 @@ describe('boss timer command storage', () => {
 			instancer.get('discord-channel')?.getExistingTimers('manon')
 		).toEqual([{ channel: 1, expiration: timer.expiration }]);
 		expect(instancer.get('sent-channel')).toBeUndefined();
-		expect(instancer.get('stale-channel')).toBeUndefined();
-		await vi.advanceTimersByTimeAsync(0);
-		expect(cleanup).not.toHaveBeenCalled();
+		expect(vi.getTimerCount()).toBe(initialTimerCount + 1);
 
 		vi.spyOn(client, 'isReady').mockReturnValue(true);
 		if (!client.isReady()) {
 			throw new Error('Expected mock client to be ready');
 		}
 		client.emit('ready', client);
+		expect(vi.getTimerCount()).toBe(initialTimerCount + 1);
 		await vi.advanceTimersByTimeAsync(0);
-		expect(cleanup).toHaveBeenCalledTimes(1);
+		expect(clearTimers).not.toHaveBeenCalled();
 	});
 
 	it('defers show replies and queries only the requested boss and Discord channel', async () => {

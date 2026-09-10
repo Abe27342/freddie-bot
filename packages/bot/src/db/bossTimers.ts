@@ -2,8 +2,7 @@ import type { Collection, Filter } from 'mongodb';
 import type { BossTimer } from '../types';
 import type { BossTimerQuery, BossTimerStorage } from './index';
 
-export const BOSS_TIMER_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-export const BOSS_TIMER_CLEANUP_BATCH_SIZE = 20;
+export const BOSS_TIMER_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 type TimerCollection = Pick<
 	Collection<BossTimer>,
@@ -14,16 +13,17 @@ export async function createBossTimerStorage(
 	timers: TimerCollection
 ): Promise<BossTimerStorage> {
 	await timers.createIndexes([
-		{ key: { expiration: 1 } },
+		// Cosmos DB expires documents relative to its internal last-modified time.
+		{ key: { _ts: 1 }, expireAfterSeconds: BOSS_TIMER_TTL_SECONDS },
 		{ key: { name: 1 } },
-		{ key: { channelId: 1, name: 1, expiration: 1 } },
+		{ key: { channelId: 1 } },
 	]);
 
 	async function getExistingTimers(
 		query: BossTimerQuery = {}
 	): Promise<BossTimer[]> {
 		const filter: Filter<BossTimer> = {
-			expiration: { $gte: Date.now() - BOSS_TIMER_RETENTION_MS },
+			expiration: { $exists: true },
 			name: { $exists: true },
 		};
 		if (query.name !== undefined) {
@@ -36,35 +36,6 @@ export async function createBossTimerStorage(
 			filter.reminderSent = { $ne: true };
 		}
 		return timers.find(filter).toArray();
-	}
-
-	async function clearStaleBossTimers(): Promise<{ hasMore: boolean }> {
-		// Bound each pass so a large backlog cannot monopolize database capacity.
-		const staleTimers = await timers
-			.find(
-				{
-					$or: [
-						{
-							expiration: {
-								$lt: Date.now() - BOSS_TIMER_RETENTION_MS,
-							},
-						},
-						{ name: { $exists: false } },
-						{ expiration: { $exists: false } },
-					],
-				},
-				{ projection: { _id: 1 } }
-			)
-			.limit(BOSS_TIMER_CLEANUP_BATCH_SIZE)
-			.toArray();
-		if (staleTimers.length > 0) {
-			await timers.deleteMany({
-				_id: { $in: staleTimers.map((timer) => timer._id) },
-			});
-		}
-		return {
-			hasMore: staleTimers.length === BOSS_TIMER_CLEANUP_BATCH_SIZE,
-		};
 	}
 
 	async function clearBossTimer(
@@ -108,7 +79,6 @@ export async function createBossTimerStorage(
 
 	return {
 		getExistingTimers,
-		clearStaleBossTimers,
 		clearBossTimer,
 		addBossTimers,
 		markTimerReminderSent,

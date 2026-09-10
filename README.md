@@ -13,21 +13,29 @@ It uses [pnpm](https://pnpm.io/).
 
 ## Boss timer storage
 
-Boss timers remain available for seven days after their expiration so commands
-can show recent spawn history. Reads exclude older timers, and startup only
-loads timers whose reminders have not been sent. Display queries are scoped to
-the requested boss and Discord channel.
+Boss timers use Azure Cosmos DB for MongoDB's native time-to-live (TTL) feature.
+The bot creates a TTL index on the internal `_ts` field with
+`expireAfterSeconds: 604800`, so documents expire seven days after their last
+modification, not seven days after the boss spawn time in `expiration`.
+Marking a reminder as sent updates the document and restarts that seven-day
+period. No per-document `ttl` field is needed.
 
-After Discord is ready, the bot removes up to 20 stale or incomplete timer
-documents per pass. Passes wait one second after completion while a backlog
-remains, then run again after an hour. Failures use the bot's normal error
-reporting and retry with exponential backoff from five seconds up to one minute. These limits
-reduce bursts on low-throughput Cosmos DB accounts but do not guarantee a fixed
-RU cost. Existing backlogs drain without blocking Discord login.
+Cosmos DB handles expiration in the background; the bot does not run an
+age-based cleanup worker or bulk-delete old timers on startup. For provisioned
+throughput accounts, physical TTL deletion uses spare RUs and can be delayed
+when capacity is unavailable. The policy also applies to existing documents:
+enabling it makes documents last modified more than seven days ago eligible
+for expiration. Duplicate compaction is not part of this policy.
 
-The bot creates indexes on expiration, name, and Discord channel/name/expiration
-when connecting to the database; its database account must have permission to
-create indexes. The initial index build may take time on a large collection.
+Startup loads only timers whose reminders have not been sent. Display queries
+are scoped to the requested boss and Discord channel, with separate single-field
+indexes on `name` and `channelId`. Reads exclude records missing a name or
+expiration but otherwise rely on Cosmos DB for TTL visibility.
+
+The database account must have permission to create indexes. Cosmos DB builds
+indexes in the background; a new index is usable once its build completes.
+The `_ts` TTL configuration is Cosmos DB-specific, not a portable TTL policy
+for a standard MongoDB server.
 
 ## TODO
 
