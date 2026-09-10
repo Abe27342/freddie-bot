@@ -12,6 +12,9 @@ type TimerCollection = Pick<
 export async function createBossTimerStorage(
 	timers: TimerCollection
 ): Promise<BossTimerStorage> {
+	// This only ensures indexes exist; removing a definition here does not drop
+	// its database index. Manage index changes/removals manually for now, and
+	// revisit this strategy if index requirements start changing frequently.
 	await timers.createIndexes([
 		// Cosmos DB expires documents relative to its internal last-modified time.
 		{ key: { _ts: 1 }, expireAfterSeconds: BOSS_TIMER_TTL_SECONDS },
