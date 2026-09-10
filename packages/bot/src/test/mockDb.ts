@@ -1,5 +1,9 @@
-import { FreddieBotDb } from '../db';
+import { BossTimerQuery, FreddieBotDb } from '../db';
 import { Reminder, DbId, BossTimer } from '../types';
+import {
+	BOSS_TIMER_CLEANUP_BATCH_SIZE,
+	BOSS_TIMER_RETENTION_MS,
+} from '../db/bossTimers';
 
 export function makeMockDb(
 	{ reminders, timers }: { reminders: Reminder[]; timers: BossTimer[] } = {
@@ -23,8 +27,35 @@ export function makeMockDb(
 		reminders.push(reminder);
 	}
 
-	async function getExistingTimers(): Promise<BossTimer[]> {
-		return [...timers];
+	async function getExistingTimers(
+		query: BossTimerQuery = {}
+	): Promise<BossTimer[]> {
+		return timers.filter(
+			(timer) =>
+				timer.expiration >= Date.now() - BOSS_TIMER_RETENTION_MS &&
+				timer.name !== undefined &&
+				(query.name === undefined || timer.name === query.name) &&
+				(query.channelId === undefined ||
+					timer.channelId === query.channelId) &&
+				(!query.pendingOnly || !timer.reminderSent)
+		);
+	}
+
+	async function clearStaleBossTimers(): Promise<{ hasMore: boolean }> {
+		let deleted = 0;
+		for (let i = timers.length - 1; i >= 0; i--) {
+			if (
+				timers[i].expiration < Date.now() - BOSS_TIMER_RETENTION_MS ||
+				timers[i].name === undefined ||
+				timers[i].expiration === undefined
+			) {
+				timers.splice(i, 1);
+				if (++deleted === BOSS_TIMER_CLEANUP_BATCH_SIZE) {
+					break;
+				}
+			}
+		}
+		return { hasMore: deleted === BOSS_TIMER_CLEANUP_BATCH_SIZE };
 	}
 
 	async function clearBossTimer(
@@ -69,6 +100,7 @@ export function makeMockDb(
 		addReminder,
 
 		getExistingTimers,
+		clearStaleBossTimers,
 		clearBossTimer,
 		addBossTimers,
 		markTimerReminderSent,
