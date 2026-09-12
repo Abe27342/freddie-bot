@@ -3,13 +3,14 @@ import { BossTimer, Reminder, DbId } from '../types';
 import { dirname } from 'path';
 import { fileURLToPath } from 'node:url';
 import * as dotenv from 'dotenv';
+import { createBossTimerStorage } from './bossTimers.js';
 dotenv.config({
 	path: `${dirname(fileURLToPath(import.meta.url))}/../../../.env`,
 });
 
 export interface BossTimerStorage {
 	addBossTimers(timer: BossTimer[]): Promise<void>;
-	getExistingTimers(): Promise<BossTimer[]>;
+	getExistingTimers(query?: BossTimerQuery): Promise<BossTimer[]>;
 	clearBossTimer(
 		name: string,
 		channelId: string,
@@ -20,6 +21,12 @@ export interface BossTimerStorage {
 		channelId: string,
 		channels: number[]
 	): Promise<void>;
+}
+
+export interface BossTimerQuery {
+	name?: string;
+	channelId?: string;
+	pendingOnly?: boolean;
 }
 
 export interface FreddieBotDb extends BossTimerStorage {
@@ -46,7 +53,9 @@ export async function createDb(): Promise<FreddieBotDb> {
 			: 'freddie-bot-db'
 	);
 	const reminders = db.collection<Reminder>('reminders');
-	const timers = db.collection<BossTimer>('boss-timers');
+	const bossTimerStorage = await createBossTimerStorage(
+		db.collection<BossTimer>('boss-timers')
+	);
 
 	async function getRemindersBefore(time: number): Promise<Reminder[]> {
 		const result = await reminders
@@ -63,72 +72,11 @@ export async function createDb(): Promise<FreddieBotDb> {
 		await reminders.insertOne(reminder);
 	}
 
-	async function getExistingTimers(): Promise<BossTimer[]> {
-		const result = await timers.find().toArray();
-		return result;
-	}
-
-	async function clearBossTimer(
-		name: string,
-		channelId: string,
-		channels: number[]
-	): Promise<void> {
-		await timers.deleteMany({
-			name,
-			channelId,
-			channel: { $in: channels },
-		});
-	}
-
-	async function addBossTimers(timersToInsert: BossTimer[]): Promise<void> {
-		const validTimers = timersToInsert.filter(t => t
-			&& t.name
-			&& t.expiration
-			&& t.channel
-			&& t.channelId
-		);
-		if (validTimers.length !== timersToInsert.length) {
-			console.warn(`Some timers were invalid and will not be inserted. Valid timers: ${JSON.stringify(validTimers)}. All timers: ${JSON.stringify(timersToInsert)}`);
-		}
-		if (validTimers.length > 0) {
-			await timers.insertMany(validTimers);
-		}
-	}
-
-	async function markTimerReminderSent(
-		name: string,
-		channelId: string,
-		channels: number[]
-	): Promise<void> {
-		await timers.updateMany(
-			{
-				name,
-				channelId,
-				channel: { $in: channels },
-			},
-			{
-				$set: { reminderSent: true },
-			}
-		);
-	}
-
-	// Clear stale timers OR documents missing required data on startup.
-	await timers.deleteMany({
-		$or: [
-			{ expiration: { $lt: Date.now() - 1000 * 60 * 60 * 24 * 7 } },
-			{ name: { $exists: false } },
-			{ expiration: { $exists: false } }
-		]
-	});
-
 	return {
 		getRemindersBefore,
 		clearReminder,
 		addReminder,
 
-		getExistingTimers,
-		clearBossTimer,
-		addBossTimers,
-		markTimerReminderSent,
+		...bossTimerStorage,
 	};
 }

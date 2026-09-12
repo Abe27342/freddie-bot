@@ -1,4 +1,4 @@
-import { FreddieBotDb } from '../db';
+import { BossTimerQuery, FreddieBotDb } from '../db';
 import { Reminder, DbId, BossTimer } from '../types';
 
 export function makeMockDb(
@@ -23,8 +23,18 @@ export function makeMockDb(
 		reminders.push(reminder);
 	}
 
-	async function getExistingTimers(): Promise<BossTimer[]> {
-		return [...timers];
+	async function getExistingTimers(
+		query: BossTimerQuery = {}
+	): Promise<BossTimer[]> {
+		return timers.filter(
+			(timer) =>
+				timer.expiration !== undefined &&
+				timer.name !== undefined &&
+				(query.name === undefined || timer.name === query.name) &&
+				(query.channelId === undefined ||
+					timer.channelId === query.channelId) &&
+				(!query.pendingOnly || !timer.reminderSent)
+		);
 	}
 
 	async function clearBossTimer(
