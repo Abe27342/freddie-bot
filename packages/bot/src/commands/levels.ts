@@ -7,8 +7,6 @@ import {
 import { Chart, registerables, _adapters } from 'chart.js';
 import { StdDateAdapter } from 'chartjs-adapter-date-std';
 import { createCanvas } from 'canvas';
-import * as path from 'path';
-import fs from 'fs';
 import { Command } from './types';
 import { getCharacterLevels } from './apis/index.js';
 
@@ -20,7 +18,6 @@ _adapters._date.override(StdDateAdapter.chartJsStandardAdapter());
 const NAME_ARG = 'names';
 const SHOW_LINE_ARG = 'show_line';
 
-let assetsEnsured = false;
 export const levels: Command = {
 	data: new SlashCommandBuilder()
 		.setName('levels')
@@ -129,26 +126,13 @@ export const levels: Command = {
 				],
 			});
 
-			const dir = './assets/levels';
-			const filename = `${names.join(',')}-${Date.now()}.png`;
-			if (!assetsEnsured) {
-				await fs.promises.mkdir(dir, { recursive: true });
-				assetsEnsured = true;
-			}
-			const fullFilename = path.join(dir, filename);
-			const out = fs.createWriteStream(fullFilename);
-			const stream = canvas.createPNGStream();
-			stream.pipe(out);
-			await new Promise((resolve, reject) => {
-				out.on('finish', resolve);
-				out.on('error', reject);
-			});
 
-			const file = new AttachmentBuilder(fullFilename);
+			const file = new AttachmentBuilder(canvas.toBuffer('image/png'), {
+				name: 'levels.png',
+			});
 			await interaction.editReply({
 				files: [file],
 			});
-			await fs.promises.rm(fullFilename);
 		} finally {
 			chart.destroy();
 		}

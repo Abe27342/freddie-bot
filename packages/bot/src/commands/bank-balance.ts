@@ -47,7 +47,7 @@ abstract class CachingBank implements Bank {
 	public readonly name: string;
 	public readonly sheetId: string;
 	private readonly dataRange: string;
-	private interval: NodeJS.Timer;
+	private interval: ReturnType<typeof setInterval>;
 	constructor(options: {
 		sheetId: string;
 		dataRange: string;

@@ -14,6 +14,7 @@ import {
 	ChatInputCommandInteraction,
 	InteractionType,
 	ApplicationCommandType,
+	ApplicationIntegrationType,
 	RequestData,
 	Routes,
 	ClientUser,
@@ -197,6 +198,9 @@ export class MockDiscord {
 				type: InteractionType.ApplicationCommand,
 				channel,
 				entitlements: [],
+				authorizing_integration_owners: {
+					[ApplicationIntegrationType.GuildInstall]: this.guild.id,
+				},
 			},
 		]);
 
