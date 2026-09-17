@@ -42,14 +42,19 @@ export const maple: Command = {
 		const name = interaction.options.getString(NAME_ARG);
 
 		let stats: Stats;
-		let avatarInfo: { items: Item[]; avatar: ArrayBuffer };
+		let avatarInfo: { items: Item[]; avatar?: ArrayBuffer };
 		try {
 			// Retry only the API calls, not the file I/O or Discord updates
 			const result = await withRetry(
 				async () => {
 					return await Promise.all([
 						getCharacterStats(name),
-						getCharacterAvatar(name, true),
+						getCharacterAvatar(name, true).catch(() => {
+							// underlying API is flaky for various reasons. the /maple command can still display
+							// some helpful information if the avatar fetch fails.
+							console.log(`Failed to fetch character avatar for ${name}`);
+							return { items: [] };
+						}),
 					]);
 				},
 				{
@@ -57,13 +62,8 @@ export const maple: Command = {
 					baseDelayMs: 1000,
 					shouldRetry: (error) => {
 						// Don't retry if it's clearly not a transient error
-						return !(
-							error.message.includes(
-								'Unexpected passthrough URL'
-							) ||
-							error.message.includes(
-								'Unable to get v251/feet-centered avatar'
-							)
+						return !error.message.includes(
+							'Unexpected passthrough URL'
 						);
 					},
 				}
@@ -88,7 +88,7 @@ export const maple: Command = {
 			}
 		}
 
-		if (!stats || !avatarInfo) {
+		if (!stats) {
 			await interaction.editReply({
 				content: 'Character not found.',
 			});
@@ -96,7 +96,9 @@ export const maple: Command = {
 		}
 
 		const buffer = await renderCharacter(
-			Buffer.from(avatarInfo.avatar),
+			avatarInfo.avatar
+				? Buffer.from(avatarInfo.avatar)
+				: undefined,
 			stats,
 			name
 		);
@@ -104,7 +106,7 @@ export const maple: Command = {
 		const file = new AttachmentBuilder(buffer);
 		await interaction.editReply({
 			files: [file],
-			content: `/maple ${name}`,
+			content: `/maple ${name}${avatarInfo.avatar ? '' : ' (unable to render character due to upstream service error)'}`,
 		});
 	},
 };
@@ -123,7 +125,7 @@ const assets = [
 ];
 
 async function renderCharacter(
-	avatarBuffer: Buffer,
+	avatarBuffer: Buffer | undefined,
 	stats: Stats,
 	fallbackName: string
 ): Promise<Buffer> {
@@ -144,16 +146,18 @@ async function renderCharacter(
 		canvas.height
 	);
 
-	const avatar = new Image();
-	avatar.src = avatarBuffer;
-	ctx.drawImage(
-		avatar,
-		500 - avatar.naturalWidth * 2,
-		// The avatar is foot-centered, hence not doubling the height here
-		350 - avatar.naturalHeight,
-		avatar.naturalWidth * 2,
-		avatar.naturalHeight * 2
-	);
+	if (avatarBuffer) {
+		const avatar = new Image();
+		avatar.src = avatarBuffer;
+		ctx.drawImage(
+			avatar,
+			500 - avatar.naturalWidth * 2,
+			// The avatar is foot-centered, hence not doubling the height here
+			350 - avatar.naturalHeight,
+			avatar.naturalWidth * 2,
+			avatar.naturalHeight * 2
+		);
+	}
 	ctx.fillStyle = '#000000';
 	ctx.globalAlpha = 0.8;
 	ctx.roundRect(10, 10, 210, 290, 15);

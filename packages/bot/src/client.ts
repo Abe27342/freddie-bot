@@ -82,7 +82,7 @@ export async function createClient({
 		client.commands.map((command) => command.initialize?.(client))
 	);
 
-	client.once('ready', async () => {
+	client.once('clientReady', async () => {
 		console.log('Ready!');
 	});
 
