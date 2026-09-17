@@ -66,7 +66,7 @@ describe('boss timer command storage', () => {
 		if (!client.isReady()) {
 			throw new Error('Expected mock client to be ready');
 		}
-		client.emit('ready', client);
+		client.emit('clientReady', client);
 		expect(vi.getTimerCount()).toBe(initialTimerCount + 1);
 		await vi.advanceTimersByTimeAsync(0);
 		expect(clearTimers).not.toHaveBeenCalled();

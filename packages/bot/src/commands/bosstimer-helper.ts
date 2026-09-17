@@ -229,7 +229,7 @@ export function getTimerAggregatorForChannel(
 	const clientReadyP = client.isReady()
 		? Promise.resolve()
 		: new Promise((resolve) =>
-				(client as FreddieBotClient).once('ready', resolve)
+				(client as FreddieBotClient).once('clientReady', resolve)
 		  );
 	const instancer = (client as HasTimerAggregators)[timerSymbol];
 	const timerAggregator = instancer.getOrCreate(channelId, () =>

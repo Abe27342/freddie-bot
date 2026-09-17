@@ -93,7 +93,7 @@ export function createReminderQueue(
 	}
 
 	// Once client is able to send messages, fetch reminders that might have lapsed during startup.
-	client.once('ready', fetchVirtualizedReminders);
+	client.once('clientReady', fetchVirtualizedReminders);
 	setInterval(fetchVirtualizedReminders, options.queryInterval);
 
 	return { setReminder, clearReminder };
