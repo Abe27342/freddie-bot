@@ -38,21 +38,60 @@ const itemsCodec = {
 	},
 };
 
-const gmsVersion = '251';
-const forcedVersions = new Map<string | undefined, string>([
-	[undefined, gmsVersion],
-	['GMS', gmsVersion],
-]);
+const GMS_AVATAR_VERSIONS = ['251', '241'];
+const AVATAR_RENDER_TIMEOUT_MS = 5000;
+
+function usesGmsVersion(item: Item): boolean {
+	return item.region === undefined || item.region === 'GMS';
+}
+
+function getVersionedItems(items: Item[], gmsVersion: string): Item[] {
+	return items.map((item) =>
+		usesGmsVersion(item) ? { ...item, version: gmsVersion } : item
+	);
+}
+
+function getRenderUrl(
+	items: Item[],
+	passthroughUrl: string,
+	pathEnd: number,
+	feetCenter: boolean
+): URL {
+	const updatedUrl = new URL(
+		`/api/character/${itemsCodec.encode(
+			items
+		)}${passthroughUrl.substring(pathEnd)}`,
+		MAPLESTORY_BASE_API
+	);
+	updatedUrl.search = new URL(passthroughUrl).search;
+	if (feetCenter) {
+		updatedUrl.searchParams.set('renderMode', 'feetCenter');
+	}
+	return updatedUrl;
+}
+
+async function fetchAvatarRender(url: URL): Promise<ArrayBuffer | undefined> {
+	try {
+		const response = await fetch(url, {
+			signal: AbortSignal.timeout(AVATAR_RENDER_TIMEOUT_MS),
+		});
+		return response.ok ? await response.arrayBuffer() : undefined;
+	} catch {
+		return undefined;
+	}
+}
 
 export async function getCharacterAvatar(
 	name: string,
 	feetCenter = false
-): Promise<{ items: Item[]; avatar: ArrayBuffer } | undefined> {
+): Promise<{ items: Item[]; avatar?: ArrayBuffer } | undefined> {
 	const avatarUrl = new URL('/api/getavatar', MAPLELEGENDS_BASE_API);
 	avatarUrl.searchParams.append('name', name);
 	let response: Response;
 	try {
-		response = await fetch(avatarUrl.href);
+		response = await fetch(avatarUrl.href, {
+			signal: AbortSignal.timeout(AVATAR_RENDER_TIMEOUT_MS),
+		});
 	} catch (error) {
 		throw new Error(
 			`Failed to connect to MapleLegends API: ${error.message}`
@@ -78,51 +117,37 @@ export async function getCharacterAvatar(
 	const end = passthroughUrl.lastIndexOf('/');
 	const encodedData = passthroughUrl.substring(start, end);
 
-	let items = itemsCodec.decode(encodedData);
-	const shouldApplyForcedVersion = (item: Item) =>
-		forcedVersions.has(item.region);
-	if (items.some(shouldApplyForcedVersion) || feetCenter) {
-		// Need to re-run the request, either because the items are out of date or the render mode
-		// returned by the ML API is wrong.
-		// Using V251 fixes some issues with newer hair/face not appearing.
-		items = items.map((item) =>
-			shouldApplyForcedVersion(item)
-				? {
-						...item,
-						version:
-							forcedVersions.get(item.region) ?? item.version,
-				  }
-				: item
-		);
-		const updatedUrl = new URL(
-			`/api/character/${itemsCodec.encode(
-				items
-			)}${passthroughUrl.substring(end)}`,
-			MAPLESTORY_BASE_API
-		);
-		updatedUrl.search = new URL(response.url).search;
-		if (feetCenter) {
-			updatedUrl.searchParams.set('renderMode', 'feetCenter');
-		}
-		try {
-			response = await fetch(updatedUrl.href);
-		} catch (error) {
-			throw new Error(
-				`Failed to connect to MapleStory.io API: ${error.message}`
+	const items = itemsCodec.decode(encodedData);
+	if (items.some(usesGmsVersion) || feetCenter) {
+		for (const [index, version] of GMS_AVATAR_VERSIONS.entries()) {
+			const avatar = await fetchAvatarRender(
+				getRenderUrl(
+					getVersionedItems(items, version),
+					passthroughUrl,
+					end,
+					feetCenter
+				)
 			);
-		}
-		if (response.status >= 500) {
-			throw new Error(
-				`MapleStory.io API returned server error: ${response.status}`
-			);
-		}
-		if (!response.ok) {
-			throw new Error('Unable to get v251/feet-centered avatar.');
+			if (avatar) {
+				return { items, avatar };
+			}
+
+			const nextVersion = GMS_AVATAR_VERSIONS[index + 1];
+			if (nextVersion) {
+				console.warn(
+					`MapleStory.io avatar render using GMS v${version} failed; falling back to v${nextVersion}.`
+				);
+			} else {
+				console.warn(
+					`MapleStory.io avatar render using GMS v${version} failed; rendering stats without an avatar.`
+				);
+				return { items };
+			}
 		}
 	}
 
 	return {
-		items: JSON.parse(`[${decodeURI(encodedData)}]`),
+		items,
 		avatar: await response.arrayBuffer(),
 	};
 }
