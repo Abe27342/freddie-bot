@@ -30,13 +30,13 @@ export const serverinfo: Command = {
 		const subcommand = interaction.options.getSubcommand();
 		switch (subcommand) {
 			case 'online': {
-				const count = await getOnline();
-				if (count === undefined) {
+				const info = await getOnline();
+				if (info === undefined) {
 					await interaction.editReply('Error fetching online count.');
 					return;
 				} else {
 					await interaction.editReply(
-						`There are ${count} users online.`
+						`Online users: ${info.usercount}. Unique users: ${info.uniquecount}.`
 					);
 				}
 				break;
