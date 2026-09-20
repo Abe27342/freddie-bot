@@ -13,11 +13,10 @@ describe('custom command', () => {
 			commandName: 'alpha',
 			serverId: 'guild-id',
 			response: 'sensitive alpha response',
-			description: 'Alpha help',
 		}).toJSON();
 
 		expect(command.name).toBe('alpha');
-		expect(command.description).toBe('Alpha help');
+		expect(command.description).toBe('Get information about alpha.');
 		expect(command.options).toEqual([]);
 		expect(JSON.stringify(command)).not.toContain('sensitive');
 	});

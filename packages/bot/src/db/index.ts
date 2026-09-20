@@ -37,6 +37,10 @@ export interface CustomCommandStorage {
 		serverId: string,
 		commandName: string
 	): Promise<CustomCommand | null>;
+	replaceCustomCommands(
+		serverId: string,
+		commands: Omit<CustomCommand, 'serverId'>[]
+	): Promise<void>;
 }
 
 export interface FreddieBotDb extends BossTimerStorage, CustomCommandStorage {

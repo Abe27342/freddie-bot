@@ -4,7 +4,7 @@ import type { CustomCommandStorage } from './index';
 
 type CustomCommandCollection = Pick<
 	Collection<CustomCommand>,
-	'createIndexes' | 'find' | 'findOne'
+	'bulkWrite' | 'createIndexes' | 'find' | 'findOne'
 >;
 
 export async function createCustomCommandStorage(
@@ -29,5 +29,33 @@ export async function createCustomCommandStorage(
 		return commands.findOne({ serverId, commandName });
 	}
 
-	return { getCustomCommands, getCustomCommand };
+	async function replaceCustomCommands(
+		serverId: string,
+		replacements: Omit<CustomCommand, 'serverId'>[]
+	): Promise<void> {
+		const commandNames = replacements.map(({ commandName }) => commandName);
+		await commands.bulkWrite([
+			...replacements.map(({ commandName, response }) => ({
+				replaceOne: {
+					filter: { serverId, commandName },
+					replacement: { serverId, commandName, response },
+					upsert: true,
+				},
+			})),
+			{
+				deleteMany: {
+					filter: {
+						serverId,
+						commandName: { $nin: commandNames },
+					},
+				},
+			},
+		]);
+	}
+
+	return {
+		getCustomCommands,
+		getCustomCommand,
+		replaceCustomCommands,
+	};
 }

@@ -9,8 +9,6 @@ export interface CustomCommand {
 	serverId: string;
 	/** Content of the bot response when command is invoked */
 	response: string;
-	/** Description of what this command does. Appears in the slash command invoke menu. */
-	description?: string;
 }
 
 export function createCustomCommandData(
@@ -18,9 +16,7 @@ export function createCustomCommandData(
 ): SlashCommandBuilder {
 	return new SlashCommandBuilder()
 		.setName(data.commandName)
-		.setDescription(
-			data.description ?? `Get information about ${data.commandName}.`
-		);
+		.setDescription(`Get information about ${data.commandName}.`);
 }
 
 export async function executeCustomCommand(

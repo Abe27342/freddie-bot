@@ -10,6 +10,7 @@ describe('custom command storage', () => {
 		createIndexes: vi.fn(),
 		find: vi.fn(),
 		findOne: vi.fn(),
+		bulkWrite: vi.fn(),
 	};
 	let storage: CustomCommandStorage;
 
@@ -20,7 +21,7 @@ describe('custom command storage', () => {
 		storage = await createCustomCommandStorage(collection);
 	});
 
-	it('enforces one subcommand name per server', () => {
+	it('enforces one command name per server', () => {
 		expect(collection.createIndexes).toHaveBeenCalledWith([
 			{ key: { serverId: 1, commandName: 1 }, unique: true },
 		]);
@@ -50,5 +51,51 @@ describe('custom command storage', () => {
 			serverId: 'guild-id',
 			commandName: 'alpha',
 		});
+	});
+
+	it('upserts desired commands and deletes stale commands for only that server', async () => {
+		await storage.replaceCustomCommands('guild-id', [
+			{ commandName: 'alpha', response: 'new alpha' },
+			{ commandName: 'beta', response: 'new beta' },
+		]);
+
+		expect(collection.bulkWrite).toHaveBeenCalledWith([
+			{
+				replaceOne: {
+					filter: {
+						serverId: 'guild-id',
+						commandName: 'alpha',
+					},
+					replacement: {
+						serverId: 'guild-id',
+						commandName: 'alpha',
+						response: 'new alpha',
+					},
+					upsert: true,
+				},
+			},
+			{
+				replaceOne: {
+					filter: {
+						serverId: 'guild-id',
+						commandName: 'beta',
+					},
+					replacement: {
+						serverId: 'guild-id',
+						commandName: 'beta',
+						response: 'new beta',
+					},
+					upsert: true,
+				},
+			},
+			{
+				deleteMany: {
+					filter: {
+						serverId: 'guild-id',
+						commandName: { $nin: ['alpha', 'beta'] },
+					},
+				},
+			},
+		]);
 	});
 });

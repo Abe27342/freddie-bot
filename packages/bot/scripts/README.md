@@ -21,13 +21,44 @@ Each document has this shape:
 {
 	"commandName": "account-help",
 	"serverId": "123456789012345678",
-	"response": "Response text stored only in MongoDB",
-	"description": "Get account support information"
+	"response": "Response text stored only in MongoDB"
 }
 ```
 
 `commandName` must be unique within a server. After changing these records, run
 the deployment script so Discord's guild command schema matches the database.
+
+## custom-commands.js
+
+Maintain a server's custom commands in a natural JSON object:
+
+```json
+{
+	"account-help": "Account support response",
+	"technical-help": "Technical support response"
+}
+```
+
+Synchronize that complete file to MongoDB:
+
+```console
+pnpm --filter @freddie-bot/bot custom-commands sync <server-id> <above-json-filepath>
+```
+
+This creates or updates entries from the file and deletes entries missing from
+the file for that server only. It does not change commands belonging to other
+servers. Invalid JSON, non-string responses, invalid Discord command names, and
+conflicts with standard commands are rejected before the database is opened.
+Responses must contain 1-2000 characters, and each server can have at most 80
+custom commands.
+
+Export a server's current entries back to the same representation:
+
+```console
+pnpm --filter @freddie-bot/bot custom-commands export <server-id> <above-json-filepath>
+```
+
+The file argument defaults to `data.json`, which is ignored by Git.
 
 ## print-authorize-link.js
 

@@ -2,17 +2,15 @@ import { BossTimerQuery, FreddieBotDb } from '../db';
 import { Reminder, DbId, BossTimer } from '../types';
 import type { CustomCommand } from '../commands/custom';
 
-export function makeMockDb(
-	{
-		reminders = [],
-		timers = [],
-		customCommands = [],
-	}: {
-		reminders?: Reminder[];
-		timers?: BossTimer[];
-		customCommands?: CustomCommand[];
-	} = {}
-): FreddieBotDb {
+export function makeMockDb({
+	reminders = [],
+	timers = [],
+	customCommands = [],
+}: {
+	reminders?: Reminder[];
+	timers?: BossTimer[];
+	customCommands?: CustomCommand[];
+} = {}): FreddieBotDb {
 	async function getRemindersBefore(time: number): Promise<Reminder[]> {
 		return reminders.filter((reminder) => reminder.expiration < time);
 	}
@@ -83,8 +81,7 @@ export function makeMockDb(
 		serverId?: string
 	): Promise<CustomCommand[]> {
 		return customCommands.filter(
-			(command) =>
-				serverId === undefined || command.serverId === serverId
+			(command) => serverId === undefined || command.serverId === serverId
 		);
 	}
 
@@ -101,6 +98,20 @@ export function makeMockDb(
 		);
 	}
 
+	async function replaceCustomCommands(
+		serverId: string,
+		replacements: Omit<CustomCommand, 'serverId'>[]
+	): Promise<void> {
+		for (let index = customCommands.length - 1; index >= 0; index--) {
+			if (customCommands[index].serverId === serverId) {
+				customCommands.splice(index, 1);
+			}
+		}
+		customCommands.push(
+			...replacements.map((command) => ({ ...command, serverId }))
+		);
+	}
+
 	return {
 		getRemindersBefore,
 		clearReminder,
@@ -113,6 +124,7 @@ export function makeMockDb(
 
 		getCustomCommands,
 		getCustomCommand,
+		replaceCustomCommands,
 		close: async () => {},
 	};
 }

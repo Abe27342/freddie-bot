@@ -14,6 +14,7 @@
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
 		"start": "node ./dist/index.js",
+		"custom-commands": "node ./scripts/custom-commands.js",
 		"generate-share-url": "node ./scripts/print-authorize-link.js",
 		"update-commands": "node ./scripts/deploy-commands",
 		"update-commands:prod": "cross-env DEPLOY_EVERYWHERE=true node ./scripts/deploy-commands"
