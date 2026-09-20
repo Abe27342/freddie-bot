@@ -183,13 +183,18 @@ export async function getCharacterStats(
 	return await response.json();
 }
 
-export async function getOnline(): Promise<number | undefined> {
+export interface OnlineInfo {
+	usercount: number;
+	uniquecount: number;
+}
+
+export async function getOnline(): Promise<OnlineInfo | undefined> {
 	const url = new URL(`/api/get_online_users`, MAPLELEGENDS_BASE_API);
 	const response = await fetch(url.href);
 	if (!response.ok) {
 		return undefined;
 	}
-	return (await response.json()).usercount;
+	return (await response.json()) as OnlineInfo;
 }
 
 export async function getUniqueUsers(): Promise<
