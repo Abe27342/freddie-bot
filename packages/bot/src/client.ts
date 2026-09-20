@@ -7,6 +7,7 @@ import type { Command } from './commands/types';
 import type { InteractionHandler } from './interactions/types';
 import { AsyncWorkTypes, ClientOptions, FreddieBotClient } from './types.js';
 import { createReminderQueue } from './reminderTaskQueue.js';
+import { executeCustomCommand } from './commands/custom.js';
 
 const debugTaskqueue = registerDebug('freddie-bot:taskqueue');
 
@@ -77,6 +78,7 @@ export async function createClient({
 		reminderQueue.setReminder(reminder);
 
 	client.bosses = db;
+	client.customCommands = db;
 
 	await Promise.all(
 		client.commands.map((command) => command.initialize?.(client))
@@ -128,7 +130,11 @@ export async function createClient({
 		const client = interaction.client as FreddieBotClient;
 		if (interaction.isChatInputCommand()) {
 			const handler = client.commands.get(interaction.commandName);
-			await handler.execute(interaction);
+			if (handler === undefined) {
+				await executeCustomCommand(interaction);
+			} else {
+				await handler.execute(interaction);
+			}
 		} else if (interaction.isStringSelectMenu() || interaction.isButton()) {
 			const [interactionType] = interaction.customId.split('|');
 			const handler = client.interactions.get(interactionType);

@@ -1,7 +1,11 @@
 import { Client, Collection, Interaction } from 'discord.js';
 import type { Command } from './commands/types';
 import type { InteractionHandler } from './interactions/types';
-import { BossTimerStorage, FreddieBotDb } from './db';
+import type {
+	BossTimerStorage,
+	CustomCommandStorage,
+	FreddieBotDb,
+} from './db';
 
 export type AsyncWorkTypes = 'command' | 'boss-timer';
 
@@ -128,4 +132,5 @@ export interface FreddieBotClient extends Client<boolean> {
 	enqueueReminder(reminder: Omit<Reminder, 'id'>): void;
 
 	bosses: BossTimerStorage;
+	customCommands: CustomCommandStorage;
 }

@@ -1,6 +1,7 @@
 *.tsbuildinfo
 **/dist/**
 /.env
+/data.json
 *.local
 **/node_modules/**
 
