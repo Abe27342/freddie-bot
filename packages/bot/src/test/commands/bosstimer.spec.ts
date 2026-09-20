@@ -19,8 +19,10 @@ describe('boss timer command storage', () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-09-10T12:00:00Z'));
 		mockDiscord = new MockDiscord();
+		const db = makeMockDb();
 		client = Object.assign(mockDiscord.getClient(), {
-			bosses: makeMockDb(),
+			bosses: db,
+			customCommands: db,
 			commands: new Collection<string, Command>(),
 			interactions: new Collection<string, InteractionHandler>(),
 			pushAsyncWork: vi.fn(),

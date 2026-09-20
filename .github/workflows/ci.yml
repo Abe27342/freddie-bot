@@ -57,4 +57,9 @@ jobs:
               env:
                   DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
                   CLIENT_ID: ${{ secrets.CLIENT_ID }}
+                  CUSTOM_COMMAND_GUILD_IDS: ${{ secrets.CUSTOM_COMMAND_GUILD_IDS }}
+                  MONGODB_HOST: ${{ secrets.MONGODB_HOST }}
+                  MONGODB_PORT: ${{ secrets.MONGODB_PORT }}
+                  MONGODB_USERNAME: ${{ secrets.MONGODB_USERNAME }}
+                  MONGODB_PASSWORD: ${{ secrets.MONGODB_PASSWORD }}
               if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
